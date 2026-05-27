@@ -15,7 +15,7 @@ import { classify } from './classifier.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const RAW_DRAWS = [
+const RAW_DRAWS: [string, string, number[]][] = [
   ["3595","2026-01-23",[1,2,4,5,6,8,10,12,13,15,16,20,21,22,25]],
   ["3596","2026-01-24",[1,2,3,4,5,6,7,8,14,15,16,18,20,21,22]],
   ["3597","2026-01-26",[1,4,5,7,10,11,13,14,15,16,19,20,21,23,25]],
@@ -117,8 +117,8 @@ const RAW_DRAWS = [
   ["3693","2026-05-23",[1,4,6,7,9,10,11,13,14,16,17,18,20,21,25]],
 ];
 
-async function seed() {
-  await mongoose.connect(process.env.MONGODB_URI);
+async function seed(): Promise<void> {
+  await mongoose.connect(process.env.MONGODB_URI!);
   console.log('✅  MongoDB connected');
 
   const docs = RAW_DRAWS.map(([concurso, dateStr, numbers]) => {
@@ -146,7 +146,7 @@ async function seed() {
   await mongoose.disconnect();
 }
 
-seed().catch((err) => {
+seed().catch((err: Error) => {
   console.error('❌ Seed error:', err.message);
   process.exit(1);
 });
