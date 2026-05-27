@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node dist/backend/server.js",
     "dev": "tsx watch server.ts",
     "build": "tsc",
     "seed": "tsx services/seeder.ts"
