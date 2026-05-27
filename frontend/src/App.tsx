@@ -1,16 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getStats } from './services/api';
-import Header         from './components/Header';
-import StatsCards     from './components/StatsCards';
-import GravityPieChart from './components/GravityPieChart';
-import MonthlyBarChart from './components/MonthlyBarChart';
+import type { StatsResponse } from '@shared/types';
+import Header           from './components/Header';
+import StatsCards       from './components/StatsCards';
+import GravityPieChart  from './components/GravityPieChart';
+import MonthlyBarChart  from './components/MonthlyBarChart';
 import MonthlyBreakdown from './components/MonthlyBreakdown';
-import ResultsTable    from './components/ResultsTable';
+import ResultsTable     from './components/ResultsTable';
 
 export default function App() {
-  const [stats,   setStats]   = useState(null);
+  const [stats,   setStats]   = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const [error,   setError]   = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
@@ -18,7 +19,7 @@ export default function App() {
       setError(null);
       const data = await getStats();
       setStats(data);
-    } catch (e) {
+    } catch {
       setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     } finally {
       setLoading(false);
@@ -38,19 +39,15 @@ export default function App() {
           </div>
         )}
 
-        {/* KPI Cards */}
         <StatsCards stats={stats} loading={loading} />
 
-        {/* Charts row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <GravityPieChart stats={stats} loading={loading} />
           <MonthlyBarChart stats={stats} loading={loading} />
         </div>
 
-        {/* Monthly table */}
         <MonthlyBreakdown stats={stats} loading={loading} />
 
-        {/* Full results */}
         <ResultsTable onDataChange={loadStats} />
       </main>
 
