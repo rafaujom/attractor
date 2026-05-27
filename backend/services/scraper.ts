@@ -49,7 +49,7 @@ async function fetchLatest(afterConcurso = 0): Promise<DrawInput[]> {
       const draws = await fetchYear(year);
       allDraws.push(...draws);
     } catch (err) {
-      console.error(`Failed to fetch year ${year}:`, (err as Error).message);
+      console.error(`Failed to fetch year ${year}:`, err instanceof Error ? err.message : String(err));
     }
   }
 

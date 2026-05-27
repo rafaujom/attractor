@@ -127,7 +127,7 @@ router.post('/fetch', async (_req: Request, res: Response) => {
     const latest = await Draw.findOne().sort({ concurso: -1 });
     const afterConcurso = latest?.concurso ?? 0;
 
-    const newDraws = (await fetchLatest(afterConcurso)) as DrawInput[];
+    const newDraws = await fetchLatest(afterConcurso);
 
     if (newDraws.length === 0) {
       return res.json({ inserted: 0, modified: 0, message: 'Already up to date.' });
