@@ -1,26 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDraws } from '../services/api';
+import type { DrawsResponse, GravityCategory } from '@shared/types';
 
-const CAT_BADGE = {
+interface Props {
+  onDataChange: () => void;
+}
+
+const CAT_BADGE: Record<GravityCategory, string> = {
   'high-gravity':  'bg-red-100 text-red-700',
   'mid-gravity':   'bg-blue-100 text-blue-700',
   'small-gravity': 'bg-green-100 text-green-700',
 };
-const CAT_EMOJI = {
+
+const CAT_EMOJI: Record<GravityCategory, string> = {
   'high-gravity':  '🔴',
   'mid-gravity':   '🔵',
   'small-gravity': '🟢',
 };
 
-function formatDate(iso) {
+function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-export default function ResultsTable({ onDataChange }) {
-  const [data,       setData]       = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [page,       setPage]       = useState(1);
-  const [category,   setCategory]   = useState('');
+export default function ResultsTable({ onDataChange: _onDataChange }: Props) {
+  const [data,     setData]     = useState<DrawsResponse | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [category, setCategory] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,8 +41,6 @@ export default function ResultsTable({ onDataChange }) {
   }, [page, category]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Reset to page 1 when filter changes
   useEffect(() => { setPage(1); }, [category]);
 
   return (
@@ -110,7 +114,6 @@ export default function ResultsTable({ onDataChange }) {
         </table>
       </div>
 
-      {/* Pagination */}
       {data?.pagination && (
         <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
           <span>

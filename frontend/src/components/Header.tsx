@@ -1,15 +1,25 @@
 import { useState } from 'react';
 import { fetchLatest } from '../services/api';
+import type { FetchResponse } from '@shared/types';
 
-export default function Header({ onRefresh }) {
+interface Props {
+  onRefresh: () => void;
+}
+
+interface Msg {
+  type: 'success' | 'error';
+  text: string;
+}
+
+export default function Header({ onRefresh }: Props) {
   const [fetching, setFetching] = useState(false);
-  const [msg,      setMsg]      = useState(null);
+  const [msg,      setMsg]      = useState<Msg | null>(null);
 
   async function handleFetch() {
     try {
       setFetching(true);
       setMsg(null);
-      const res = await fetchLatest();
+      const res: FetchResponse = await fetchLatest();
       setMsg({ type: 'success', text: res.message });
       onRefresh();
     } catch {

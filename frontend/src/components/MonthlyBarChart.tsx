@@ -2,8 +2,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import type { StatsResponse } from '@shared/types';
 
-export default function MonthlyBarChart({ stats, loading }) {
+interface Props {
+  stats: StatsResponse | null;
+  loading: boolean;
+}
+
+export default function MonthlyBarChart({ stats, loading }: Props) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -15,10 +21,10 @@ export default function MonthlyBarChart({ stats, loading }) {
   if (!stats?.monthly?.length) return null;
 
   const data = stats.monthly.map((m) => ({
-    name:         m.label,
-    'High':       m.highGravity,
-    'Mid':        m.midGravity,
-    'Small':      m.smallGravity,
+    name:    m.label,
+    'High':  m.highGravity,
+    'Mid':   m.midGravity,
+    'Small': m.smallGravity,
   }));
 
   return (
@@ -33,9 +39,9 @@ export default function MonthlyBarChart({ stats, loading }) {
           <YAxis tick={{ fontSize: 11 }} />
           <Tooltip />
           <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-          <Bar dataKey="High"  stackId="a" fill="#e74c3c" radius={[0,0,0,0]} />
-          <Bar dataKey="Mid"   stackId="a" fill="#2980b9" radius={[0,0,0,0]} />
-          <Bar dataKey="Small" stackId="a" fill="#27ae60" radius={[4,4,0,0]} />
+          <Bar dataKey="High"  stackId="a" fill="#e74c3c" radius={[0,0,0,0] as [number, number, number, number]} />
+          <Bar dataKey="Mid"   stackId="a" fill="#2980b9" radius={[0,0,0,0] as [number, number, number, number]} />
+          <Bar dataKey="Small" stackId="a" fill="#27ae60" radius={[4,4,0,0] as [number, number, number, number]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

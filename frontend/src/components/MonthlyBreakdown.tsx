@@ -1,4 +1,11 @@
-export default function MonthlyBreakdown({ stats, loading }) {
+import type { StatsResponse } from '@shared/types';
+
+interface Props {
+  stats: StatsResponse | null;
+  loading: boolean;
+}
+
+export default function MonthlyBreakdown({ stats, loading }: Props) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
