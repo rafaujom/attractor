@@ -6,3 +6,6 @@ node_modules
 .env.local
 # anthropic api key
 .env
+
+# superpower docs
+docs
