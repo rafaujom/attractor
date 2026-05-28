@@ -14,9 +14,9 @@ function classify(numbers: number[]): ClassifyResult {
   if (max <= 21) {
     category = 'small-gravity';
   } else if (min >= 4) {
-    category = 'mid-gravity';
-  } else {
     category = 'high-gravity';
+  } else {
+    category = 'mid-gravity';
   }
 
   return { category, min, max };

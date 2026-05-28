@@ -37,9 +37,9 @@ Copy from `backend/.env.example`. MongoDB Atlas is required — there is no loca
 **Data flow:** `asloterias.com.br` → `backend/services/scraper.js` (Axios + Cheerio) → `backend/services/classifier.js` → MongoDB (`Draw` collection) → REST API → React frontend.
 
 **Gravity classification** (`backend/services/classifier.js`) is the core business logic. It takes an array of 15 numbers and returns a category based solely on `min` and `max`:
-- `small-gravity`: max ≤ 21
-- `mid-gravity`: min ≥ 4 AND max ≥ 22
-- `high-gravity`: min ≤ 3 AND max ≥ 22
+- `small-gravity`: max ≤ 21 (all numbers in 1–21)
+- `high-gravity`: min ≥ 4 AND max ≥ 22 (no numbers 1–3, spans into upper range)
+- `mid-gravity`: min ≤ 3 AND max ≥ 22 (spans full range 1–25)
 
 The `min`, `max`, and `category` fields are computed at write time (scrape or seed) and stored denormalised on the `Draw` document — do not recompute them on reads.
 

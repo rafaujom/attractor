@@ -19,7 +19,7 @@ async function fetchYear(year: number): Promise<DrawInput[]> {
 
   const text  = $.text();
   const regex =
-    /Concurso:\s*(\d+)\s*[-–]\s*(\d{2}\/\d{2}\/\d{4})\s*\([^)]+\)\s*((?:\d{2}\s*){15})/g;
+    /Concurso:\s*(\d+)\s*[-–]\s*(\d{2}\/\d{2}\/\d{4})\s*\([^)]+\)[^0-9]*((?:\d{2}\s*){15})/g;
 
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
