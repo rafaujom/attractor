@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import Draw from '../models/Draw.js';
 import { fetchLatest } from '../services/scraper.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput } from '../../shared/types/index.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -102,6 +102,46 @@ router.get('/stats', async (_req: Request, res: Response) => {
       latestConcurso: latest?.concurso ?? 0,
     };
     res.json(response);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/recency ──────────────────────────────────────────────────
+router.get('/recency', async (_req: Request, res: Response) => {
+  try {
+    interface RecencyAggRow { _id: number; lastDate: Date }
+
+    const rows = await Draw.aggregate<RecencyAggRow>([
+      { $unwind: '$numbers' },
+      { $group: { _id: '$numbers', lastDate: { $max: '$date' } } },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    const recency: RecencyEntry[] = rows.map((r) => {
+      const last = new Date(r.lastDate);
+      last.setHours(0, 0, 0, 0);
+      return {
+        number:     r._id,
+        lastDate:   r.lastDate.toISOString().slice(0, 10),
+        daysAbsent: Math.round((today.getTime() - last.getTime()) / MS_PER_DAY),
+      };
+    });
+
+    // Fill any missing numbers (1-25) that have never appeared (edge case)
+    const seen = new Set(recency.map((r) => r.number));
+    for (let n = 1; n <= 25; n++) {
+      if (!seen.has(n)) recency.push({ number: n, lastDate: '', daysAbsent: 9999 });
+    }
+
+    recency.sort((a, b) => b.daysAbsent - a.daysAbsent);
+
+    res.json(recency);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
