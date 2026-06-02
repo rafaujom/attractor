@@ -1,24 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getStats } from './services/api';
-import type { StatsResponse } from '@shared/types';
+import { getStats, getRecency } from './services/api';
+import type { StatsResponse, RecencyResponse } from '@shared/types';
 import Header           from './components/Header';
 import StatsCards       from './components/StatsCards';
 import GravityPieChart  from './components/GravityPieChart';
 import MonthlyBarChart  from './components/MonthlyBarChart';
 import MonthlyBreakdown from './components/MonthlyBreakdown';
+import RecencyChart     from './components/RecencyChart';
 import ResultsTable     from './components/ResultsTable';
 
 export default function App() {
   const [stats,   setStats]   = useState<StatsResponse | null>(null);
+  const [recency, setRecency] = useState<RecencyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  const loadStats = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getStats();
-      setStats(data);
+      const [statsData, recencyData] = await Promise.all([getStats(), getRecency()]);
+      setStats(statsData);
+      setRecency(recencyData);
     } catch {
       setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     } finally {
@@ -26,11 +29,11 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header onRefresh={loadStats} />
+      <Header onRefresh={loadData} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 space-y-8">
         {error && (
@@ -48,7 +51,9 @@ export default function App() {
 
         <MonthlyBreakdown stats={stats} loading={loading} />
 
-        <ResultsTable onDataChange={loadStats} />
+        <RecencyChart data={recency} loading={loading} />
+
+        <ResultsTable onDataChange={loadData} />
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200">
