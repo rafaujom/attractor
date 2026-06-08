@@ -1,9 +1,21 @@
 import type { StatsResponse } from '@shared/types';
+import Tooltip from './Tooltip';
 
 interface Props {
   stats: StatsResponse | null;
   loading: boolean;
 }
+
+const COLUMN_TOOLTIPS: Record<string, string> = {
+  '🔴 High':
+    'High-Gravity — Numbers span the full range. At least one number ≤ 03 and at least one ≥ 22. Most common outcome (~90% of draws).',
+  '🔵 Mid':
+    'Mid-Gravity — All numbers within 04–25. No number below 04. Rare event (~5% of draws).',
+  '🟢 Small':
+    'Small-Gravity — All numbers within 01–21. No number above 21. Rare event (~4% of draws).',
+  '⭐ Especiais':
+    'Count of draws classified as either Mid-Gravity or Small-Gravity — the "special" events to watch for.',
+};
 
 export default function MonthlyBreakdown({ stats, loading }: Props) {
   if (loading) {
@@ -30,7 +42,13 @@ export default function MonthlyBreakdown({ stats, loading }: Props) {
           <thead>
             <tr className="bg-slate-800 text-white text-left">
               {['Mês', 'Total', '🔴 High', '🔵 Mid', '🟢 Small', '⭐ Especiais', '% Especiais'].map((h) => (
-                <th key={h} className="px-4 py-2 font-semibold">{h}</th>
+                <th key={h} className="px-4 py-2 font-semibold">
+                  {COLUMN_TOOLTIPS[h] ? (
+                    <Tooltip content={COLUMN_TOOLTIPS[h]}>{h}</Tooltip>
+                  ) : (
+                    h
+                  )}
+                </th>
               ))}
             </tr>
           </thead>
