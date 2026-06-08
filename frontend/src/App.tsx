@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getStats } from './services/api';
-import type { StatsResponse } from '@shared/types';
+import { getStats, getStreaks } from './services/api';
+import type { StatsResponse, StreakEntry } from '@shared/types';
 import Header           from './components/Header';
 import StatsCards       from './components/StatsCards';
 import GravityPieChart  from './components/GravityPieChart';
 import MonthlyBarChart  from './components/MonthlyBarChart';
 import MonthlyBreakdown from './components/MonthlyBreakdown';
 import ResultsTable     from './components/ResultsTable';
+import StreaksChart     from './components/StreaksChart';
 
 export default function App() {
-  const [stats,   setStats]   = useState<StatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [stats,          setStats]          = useState<StatsResponse | null>(null);
+  const [streaks,        setStreaks]        = useState<StreakEntry[] | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [streaksLoading, setStreaksLoading] = useState(true);
+  const [error,          setError]          = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
@@ -26,7 +29,22 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  const loadStreaks = useCallback(async () => {
+    try {
+      setStreaksLoading(true);
+      const data = await getStreaks();
+      setStreaks(data.streaks);
+    } catch {
+      // streaks chart will simply not render
+    } finally {
+      setStreaksLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStats();
+    loadStreaks();
+  }, [loadStats, loadStreaks]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,6 +65,8 @@ export default function App() {
         </div>
 
         <MonthlyBreakdown stats={stats} loading={loading} />
+
+        <StreaksChart streaks={streaks} loading={streaksLoading} />
 
         <ResultsTable onDataChange={loadStats} />
       </main>

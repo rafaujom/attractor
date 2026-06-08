@@ -54,3 +54,12 @@ export interface FetchResponse {
   modified: number;
   message: string;
 }
+
+export interface StreakEntry {
+  number: number;
+  drawsAbsent: number;
+}
+
+export interface StreaksResponse {
+  streaks: StreakEntry[];
+}

@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import Draw from '../models/Draw.js';
 import { fetchLatest } from '../services/scraper.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput } from '../../shared/types/index.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, StreakEntry, StreaksResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -101,6 +101,36 @@ router.get('/stats', async (_req: Request, res: Response) => {
       monthly,
       latestConcurso: latest?.concurso ?? 0,
     };
+    res.json(response);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/streaks ──────────────────────────────────────────────────
+router.get('/streaks', async (_req: Request, res: Response) => {
+  try {
+    const draws = await Draw.find({}, { numbers: 1 }).sort({ concurso: 1 }).lean();
+
+    const counts: Record<number, number> = {};
+    for (let n = 1; n <= 25; n++) counts[n] = 0;
+
+    for (const draw of draws) {
+      const drawn = new Set(draw.numbers);
+      for (let n = 1; n <= 25; n++) {
+        if (drawn.has(n)) {
+          counts[n] = 0;
+        } else {
+          counts[n]++;
+        }
+      }
+    }
+
+    const streaks: StreakEntry[] = Object.entries(counts)
+      .map(([num, drawsAbsent]) => ({ number: parseInt(num), drawsAbsent }))
+      .sort((a, b) => b.drawsAbsent - a.drawsAbsent);
+
+    const response: StreaksResponse = { streaks };
     res.json(response);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
