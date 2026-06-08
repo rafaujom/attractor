@@ -54,3 +54,11 @@ export interface FetchResponse {
   modified: number;
   message: string;
 }
+
+export interface RecencyEntry {
+  number: number;
+  lastDate: string;
+  daysAbsent: number;
+}
+
+export type RecencyResponse = RecencyEntry[];
