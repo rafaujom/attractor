@@ -10,10 +10,11 @@ import RecencyChart     from './components/RecencyChart';
 import ResultsTable     from './components/ResultsTable';
 
 export default function App() {
-  const [stats,   setStats]   = useState<StatsResponse | null>(null);
-  const [recency, setRecency] = useState<RecencyResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [stats,      setStats]      = useState<StatsResponse | null>(null);
+  const [recency,    setRecency]    = useState<RecencyResponse | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadData = useCallback(async () => {
     try {
@@ -29,11 +30,16 @@ export default function App() {
     }
   }, []);
 
+  const handleRefresh = useCallback(async () => {
+    await loadData();
+    setRefreshKey((k) => k + 1);
+  }, [loadData]);
+
   useEffect(() => { loadData(); }, [loadData]);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header onRefresh={loadData} />
+      <Header onRefresh={handleRefresh} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 space-y-8">
         {error && (
@@ -53,7 +59,7 @@ export default function App() {
 
         <RecencyChart data={recency} loading={loading} />
 
-        <ResultsTable onDataChange={loadData} />
+        <ResultsTable refreshKey={refreshKey} />
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200">
