@@ -3,7 +3,7 @@ import { getDraws } from '../services/api';
 import type { DrawsResponse, GravityCategory } from '@shared/types';
 
 interface Props {
-  onDataChange: () => void;
+  refreshKey?: number;
 }
 
 const CAT_BADGE: Record<GravityCategory, string> = {
@@ -22,7 +22,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-export default function ResultsTable({ onDataChange: _onDataChange }: Props) {
+export default function ResultsTable({ refreshKey }: Props) {
   const [data,     setData]     = useState<DrawsResponse | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [page,     setPage]     = useState(1);
@@ -40,7 +40,7 @@ export default function ResultsTable({ onDataChange: _onDataChange }: Props) {
     }
   }, [page, category]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshKey]);
   useEffect(() => { setPage(1); }, [category]);
 
   return (
