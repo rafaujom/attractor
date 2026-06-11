@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getStats, getRecency } from './services/api';
 import type { StatsResponse, RecencyResponse } from '@shared/types';
 import Header           from './components/Header';
@@ -8,8 +8,11 @@ import MonthlyBarChart  from './components/MonthlyBarChart';
 import MonthlyBreakdown from './components/MonthlyBreakdown';
 import RecencyChart     from './components/RecencyChart';
 import ResultsTable     from './components/ResultsTable';
+import MinhasApostas    from './components/MinhasApostas';
 
 export default function App() {
+  const [ticketRefreshKey, setTicketRefreshKey] = useState(0);
+  const isInitialLoad = useRef(true);
   const [stats,      setStats]      = useState<StatsResponse | null>(null);
   const [recency,    setRecency]    = useState<RecencyResponse | null>(null);
   const [loading,    setLoading]    = useState(true);
@@ -20,6 +23,9 @@ export default function App() {
     try {
       setLoading(true);
       setError(null);
+      if (!isInitialLoad.current) {
+        setTicketRefreshKey((k) => k + 1);
+      }
       const [statsData, recencyData] = await Promise.all([getStats(), getRecency()]);
       setStats(statsData);
       setRecency(recencyData);
@@ -27,6 +33,7 @@ export default function App() {
       setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     } finally {
       setLoading(false);
+      isInitialLoad.current = false;
     }
   }, []);
 
@@ -58,6 +65,8 @@ export default function App() {
         <MonthlyBreakdown stats={stats} loading={loading} />
 
         <RecencyChart data={recency} loading={loading} />
+
+        <MinhasApostas refreshKey={ticketRefreshKey} />
 
         <ResultsTable refreshKey={refreshKey} />
       </main>
