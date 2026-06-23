@@ -1,5 +1,12 @@
 import axios from 'axios';
-import type { StatsResponse, DrawsResponse, FetchResponse, RecencyResponse } from '@shared/types';
+import type {
+  StatsResponse,
+  DrawsResponse,
+  FetchResponse,
+  RecencyResponse,
+  Ticket,
+  TicketPerformance,
+} from '@shared/types';
 
 const api = axios.create({ baseURL: '/api' });
 
@@ -14,3 +21,15 @@ export const fetchLatest = (): Promise<FetchResponse> =>
 
 export const getRecency = (): Promise<RecencyResponse> =>
   api.get('/draws/recency').then((r) => r.data as RecencyResponse);
+
+export const getTickets = (): Promise<Ticket[]> =>
+  api.get('/tickets').then((r) => r.data as Ticket[]);
+
+export const createTicket = (data: { numbers: number[]; label?: string }): Promise<Ticket> =>
+  api.post('/tickets', data).then((r) => r.data as Ticket);
+
+export const deleteTicket = (id: string): Promise<void> =>
+  api.delete(`/tickets/${id}`).then(() => undefined);
+
+export const getTicketPerformance = (id: string): Promise<TicketPerformance> =>
+  api.get(`/tickets/${id}/performance`).then((r) => r.data as TicketPerformance);
