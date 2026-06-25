@@ -64,26 +64,21 @@ export interface RecencyEntry {
 export type RecencyResponse = RecencyEntry[];
 
 // ── Tickets ──────────────────────────────────────────────────────────────────
+// A ticket is the player's guess for a single draw (keyed by concurso). The
+// match count and prize flag are scored against that draw's winning numbers.
 export interface Ticket {
-  _id: string;
+  concurso: number;
+  numbers: number[];
+  matches: number;
+  hasPrize: boolean;
+  label?: string;
+  createdAt?: string;
+}
+
+// Payload the client sends to save/update a ticket for a draw. matches/hasPrize
+// are computed authoritatively on the server from the draw's numbers.
+export interface TicketInput {
+  concurso: number;
   numbers: number[];
   label?: string;
-  createdAt: string;
-}
-
-export interface DrawResult {
-  concurso: number;
-  date: string;
-  drawNumbers: number[];
-  matches: number;
-  matchedNumbers: number[];
-  prizeTier: number | null;
-}
-
-export interface TicketPerformance {
-  ticket: Ticket;
-  totalDraws: number;
-  hitsByTier: Record<string, number>;
-  hitRate: number;
-  draws: DrawResult[];
 }

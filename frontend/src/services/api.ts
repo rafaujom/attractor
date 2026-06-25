@@ -5,7 +5,7 @@ import type {
   FetchResponse,
   RecencyResponse,
   Ticket,
-  TicketPerformance,
+  TicketInput,
 } from '@shared/types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -22,14 +22,10 @@ export const fetchLatest = (): Promise<FetchResponse> =>
 export const getRecency = (): Promise<RecencyResponse> =>
   api.get('/draws/recency').then((r) => r.data as RecencyResponse);
 
-export const getTickets = (): Promise<Ticket[]> =>
-  api.get('/tickets').then((r) => r.data as Ticket[]);
+export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
+  api
+    .get('/tickets', { params: { concursos: concursos.join(',') } })
+    .then((r) => r.data as Ticket[]);
 
-export const createTicket = (data: { numbers: number[]; label?: string }): Promise<Ticket> =>
-  api.post('/tickets', data).then((r) => r.data as Ticket);
-
-export const deleteTicket = (id: string): Promise<void> =>
-  api.delete(`/tickets/${id}`).then(() => undefined);
-
-export const getTicketPerformance = (id: string): Promise<TicketPerformance> =>
-  api.get(`/tickets/${id}/performance`).then((r) => r.data as TicketPerformance);
+export const saveTicket = (ticket: TicketInput): Promise<Ticket> =>
+  api.post('/tickets', ticket).then((r) => r.data as Ticket);
