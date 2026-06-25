@@ -62,3 +62,10 @@ export interface RecencyEntry {
 }
 
 export type RecencyResponse = RecencyEntry[];
+
+export interface Ticket {
+  concurso: number;
+  numbers: number[];
+  matches: number;
+  hasPrize: boolean;
+}

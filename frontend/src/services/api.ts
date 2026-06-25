@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { StatsResponse, DrawsResponse, FetchResponse, RecencyResponse } from '@shared/types';
+import type { StatsResponse, DrawsResponse, FetchResponse, RecencyResponse, Ticket } from '@shared/types';
 
 const api = axios.create({ baseURL: '/api' });
 
@@ -14,3 +14,9 @@ export const fetchLatest = (): Promise<FetchResponse> =>
 
 export const getRecency = (): Promise<RecencyResponse> =>
   api.get('/draws/recency').then((r) => r.data as RecencyResponse);
+
+export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
+  api.get('/tickets', { params: { concursos: concursos.join(',') } }).then((r) => r.data as Ticket[]);
+
+export const saveTicket = (ticket: Ticket): Promise<Ticket> =>
+  api.post('/tickets', ticket).then((r) => r.data as Ticket);
