@@ -4,7 +4,7 @@ import type { DrawsResponse, GravityCategory, Draw, Ticket } from '@shared/types
 import TicketModal from './TicketModal';
 
 interface Props {
-  onDataChange: () => void;
+  refreshKey?: number;
 }
 
 const CAT_BADGE: Record<GravityCategory, string> = {
@@ -23,6 +23,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
+<<<<<<< HEAD
 export default function ResultsTable({ onDataChange: _onDataChange }: Props) {
   const [data,      setData]      = useState<DrawsResponse | null>(null);
   const [loading,   setLoading]   = useState(true);
@@ -30,6 +31,13 @@ export default function ResultsTable({ onDataChange: _onDataChange }: Props) {
   const [category,  setCategory]  = useState('');
   const [tickets,   setTickets]   = useState<Record<number, Ticket>>({});
   const [modalDraw, setModalDraw] = useState<Draw | null>(null);
+=======
+export default function ResultsTable({ refreshKey }: Props) {
+  const [data,     setData]     = useState<DrawsResponse | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [category, setCategory] = useState('');
+>>>>>>> f939da76b0e4a779d7430c1f8f1f2c070c448bfb
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,7 +58,7 @@ export default function ResultsTable({ onDataChange: _onDataChange }: Props) {
     }
   }, [page, category]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshKey]);
   useEffect(() => { setPage(1); }, [category]);
 
   function handleSave(ticket: Ticket) {

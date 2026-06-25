@@ -63,9 +63,27 @@ export interface RecencyEntry {
 
 export type RecencyResponse = RecencyEntry[];
 
+// ── Tickets ──────────────────────────────────────────────────────────────────
 export interface Ticket {
-  concurso: number;
+  _id: string;
   numbers: number[];
+  label?: string;
+  createdAt: string;
+}
+
+export interface DrawResult {
+  concurso: number;
+  date: string;
+  drawNumbers: number[];
   matches: number;
-  hasPrize: boolean;
+  matchedNumbers: number[];
+  prizeTier: number | null;
+}
+
+export interface TicketPerformance {
+  ticket: Ticket;
+  totalDraws: number;
+  hitsByTier: Record<string, number>;
+  hitRate: number;
+  draws: DrawResult[];
 }
