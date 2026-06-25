@@ -31,10 +31,10 @@ export default function Tooltip({ content, children }: Props) {
       {visible && (
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-lg bg-slate-900 text-white text-xs px-3 py-2 shadow-lg pointer-events-none whitespace-normal leading-relaxed"
+          className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-56 rounded-lg bg-slate-900 text-white text-xs px-3 py-2 shadow-lg pointer-events-none whitespace-normal leading-relaxed"
         >
           {content}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
         </span>
       )}
     </span>
