@@ -1,24 +1,57 @@
 import express, { Request, Response } from 'express';
-import Ticket from '../models/Ticket.js';
+import Ticket, { ITicketDocument } from '../models/Ticket.js';
 import Draw from '../models/Draw.js';
-import type { DrawResult, Ticket as TicketType, TicketPerformance } from '../../shared/types/index.js';
+import type { Ticket as TicketType } from '../../shared/types/index.js';
 
 const router = express.Router();
 
-// ── GET /api/tickets ─────────────────────────────────────────────────────────
-router.get('/', async (_req: Request, res: Response) => {
+const PRIZE_THRESHOLD = 11; // 11+ matches wins a prize in Lotofácil
+
+function serialize(t: ITicketDocument): TicketType {
+  return {
+    concurso:  t.concurso,
+    numbers:   t.numbers,
+    matches:   t.matches,
+    hasPrize:  t.hasPrize,
+    label:     t.label,
+    createdAt: t.createdAt?.toISOString(),
+  };
+}
+
+// ── GET /api/tickets?concursos=1,2,3 ──────────────────────────────────────────
+// Returns the player's saved tickets. When `concursos` is provided, only the
+// tickets for those draws are returned (used to hydrate the results table).
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const tickets = await Ticket.find().sort({ createdAt: -1 });
-    res.json(tickets);
+    const raw = typeof req.query.concursos === 'string' ? req.query.concursos : '';
+    const concursos = raw
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isInteger(n));
+
+    const filter = concursos.length > 0 ? { concurso: { $in: concursos } } : {};
+    const tickets = await Ticket.find(filter).sort({ concurso: -1 });
+    res.json(tickets.map(serialize));
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
 });
 
-// ── POST /api/tickets ────────────────────────────────────────────────────────
+// ── POST /api/tickets ─────────────────────────────────────────────────────────
+// Upsert the player's ticket for a draw. matches/hasPrize are scored on the
+// server against the draw's winning numbers so they can't be spoofed by the client.
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { numbers, label } = req.body as { numbers: unknown; label?: unknown };
+    const { concurso, numbers, label } = req.body as {
+      concurso: unknown;
+      numbers: unknown;
+      label?: unknown;
+    };
+
+    if (!Number.isInteger(concurso)) {
+      res.status(400).json({ error: 'A valid concurso number is required.' });
+      return;
+    }
 
     if (!Array.isArray(numbers) || numbers.length !== 15) {
       res.status(400).json({ error: 'Ticket must contain exactly 15 numbers.' });
@@ -37,85 +70,29 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const ticket = await Ticket.create({
-      numbers: nums,
-      label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
-    });
-
-    res.status(201).json(ticket);
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// ── DELETE /api/tickets/:id ──────────────────────────────────────────────────
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const ticket = await Ticket.findByIdAndDelete(req.params.id);
-    if (!ticket) {
-      res.status(404).json({ error: 'Ticket not found.' });
-      return;
-    }
-    res.json({ message: 'Ticket deleted.' });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// ── GET /api/tickets/:id/performance ────────────────────────────────────────
-router.get('/:id/performance', async (req: Request, res: Response) => {
-  try {
-    const ticket = await Ticket.findById(req.params.id);
-    if (!ticket) {
-      res.status(404).json({ error: 'Ticket not found.' });
+    const draw = await Draw.findOne({ concurso });
+    if (!draw) {
+      res.status(404).json({ error: `Draw #${concurso} not found.` });
       return;
     }
 
-    const draws = await Draw.find().sort({ concurso: -1 });
-    const ticketSet = new Set(ticket.numbers);
+    const drawSet = new Set(draw.numbers);
+    const matches = nums.filter((n) => drawSet.has(n)).length;
+    const hasPrize = matches >= PRIZE_THRESHOLD;
 
-    const drawResults: DrawResult[] = draws.map((draw) => {
-      const matchedNumbers = draw.numbers.filter((n) => ticketSet.has(n));
-      const matches = matchedNumbers.length;
-      return {
-        concurso:       draw.concurso,
-        date:           draw.date.toISOString(),
-        drawNumbers:    draw.numbers,
+    const ticket = await Ticket.findOneAndUpdate(
+      { concurso },
+      {
+        concurso,
+        numbers: nums,
         matches,
-        matchedNumbers,
-        prizeTier:      matches >= 11 ? matches : null,
-      };
-    });
+        hasPrize,
+        label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
 
-    const hitsByTier: Record<string, number> = { '11': 0, '12': 0, '13': 0, '14': 0, '15': 0 };
-    let totalHits = 0;
-    for (const r of drawResults) {
-      if (r.prizeTier !== null) {
-        hitsByTier[String(r.prizeTier)]++;
-        totalHits++;
-      }
-    }
-
-    const hitRate = draws.length > 0
-      ? Math.round((totalHits / draws.length) * 10000) / 100
-      : 0;
-
-    const ticketOut: TicketType = {
-      _id:      String(ticket._id),
-      numbers:  ticket.numbers,
-      label:    ticket.label,
-      createdAt: ticket.createdAt.toISOString(),
-    };
-
-    const response: TicketPerformance = {
-      ticket:     ticketOut,
-      totalDraws: draws.length,
-      hitsByTier,
-      hitRate,
-      draws:      drawResults,
-    };
-
-    res.json(response);
+    res.status(201).json(serialize(ticket));
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

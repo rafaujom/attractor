@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDraws } from '../services/api';
-import type { DrawsResponse, GravityCategory } from '@shared/types';
+import { getDraws, getTickets, saveTicket } from '../services/api';
+import type { DrawsResponse, GravityCategory, Draw, Ticket } from '@shared/types';
+import TicketModal from './TicketModal';
 
 interface Props {
   refreshKey?: number;
@@ -23,16 +24,25 @@ function formatDate(iso: string): string {
 }
 
 export default function ResultsTable({ refreshKey }: Props) {
-  const [data,     setData]     = useState<DrawsResponse | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [page,     setPage]     = useState(1);
-  const [category, setCategory] = useState('');
+  const [data,      setData]      = useState<DrawsResponse | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [page,      setPage]      = useState(1);
+  const [category,  setCategory]  = useState('');
+  const [tickets,   setTickets]   = useState<Record<number, Ticket>>({});
+  const [modalDraw, setModalDraw] = useState<Draw | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getDraws({ page, limit: 20, category: category || undefined });
       setData(res);
+      if (res.draws.length > 0) {
+        const concursos = res.draws.map((d) => d.concurso);
+        const list = await getTickets(concursos);
+        const map: Record<number, Ticket> = {};
+        for (const t of list) map[t.concurso] = t;
+        setTickets((prev) => ({ ...prev, ...map }));
+      }
     } catch {
       setData(null);
     } finally {
@@ -42,6 +52,38 @@ export default function ResultsTable({ refreshKey }: Props) {
 
   useEffect(() => { load(); }, [load, refreshKey]);
   useEffect(() => { setPage(1); }, [category]);
+
+  function handleSave(ticket: Ticket) {
+    saveTicket(ticket).then((saved) => {
+      setTickets((prev) => ({ ...prev, [saved.concurso]: saved }));
+    });
+  }
+
+  function ticketButton(draw: Draw) {
+    const t = tickets[draw.concurso];
+    if (!t) {
+      return (
+        <button
+          onClick={() => setModalDraw(draw)}
+          className="px-2 py-1 text-xs rounded-lg border border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
+        >
+          + My Ticket
+        </button>
+      );
+    }
+    return (
+      <button
+        onClick={() => setModalDraw(draw)}
+        className={`px-2 py-1 text-xs rounded-lg font-semibold border transition-colors whitespace-nowrap ${
+          t.hasPrize
+            ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+            : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+        }`}
+      >
+        ✅ {t.matches}/15
+      </button>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -65,7 +107,7 @@ export default function ResultsTable({ refreshKey }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-800 text-white text-left">
-              {['Concurso', 'Data', 'Categoria', 'Números Sorteados'].map((h) => (
+              {['Concurso', 'Data', 'Categoria', 'Números Sorteados', 'My Ticket'].map((h) => (
                 <th key={h} className="px-4 py-2 font-semibold whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -74,7 +116,7 @@ export default function ResultsTable({ refreshKey }: Props) {
             {loading ? (
               [...Array(10)].map((_, i) => (
                 <tr key={i} className="border-b border-slate-100">
-                  {[...Array(4)].map((__, j) => (
+                  {[...Array(5)].map((__, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="h-4 bg-slate-100 rounded animate-pulse" />
                     </td>
@@ -83,7 +125,7 @@ export default function ResultsTable({ refreshKey }: Props) {
               ))
             ) : data?.draws?.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                   Nenhum resultado encontrado.
                 </td>
               </tr>
@@ -106,6 +148,9 @@ export default function ResultsTable({ refreshKey }: Props) {
                   </td>
                   <td className="px-4 py-2 font-mono text-xs text-slate-600 tracking-wide">
                     {draw.numbers.map((n) => String(n).padStart(2, '0')).join(' · ')}
+                  </td>
+                  <td className="px-4 py-2">
+                    {ticketButton(draw)}
                   </td>
                 </tr>
               ))
@@ -138,6 +183,15 @@ export default function ResultsTable({ refreshKey }: Props) {
             </button>
           </div>
         </div>
+      )}
+
+      {modalDraw && (
+        <TicketModal
+          draw={modalDraw}
+          existingTicket={tickets[modalDraw.concurso] ?? null}
+          onSave={handleSave}
+          onClose={() => setModalDraw(null)}
+        />
       )}
     </div>
   );
