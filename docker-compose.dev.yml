@@ -1,0 +1,47 @@
+# Development stack — hot reload for both services.
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Source directories are bind-mounted so edits on the host are picked up
+# immediately by `tsx watch` (backend) and Vite HMR (frontend). Each
+# service's node_modules is kept in a named volume so the bind mount doesn't
+# shadow the dependencies installed inside the image.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: deps
+    working_dir: /app/backend
+    command: npm run dev
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      PORT: 3001
+    volumes:
+      - ./backend:/app/backend
+      - ./shared:/app/shared
+      - backend_node_modules:/app/backend/node_modules
+    ports:
+      - "3001:3001"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: deps
+    working_dir: /app/frontend
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./frontend:/app/frontend
+      - ./shared:/app/shared
+      - frontend_node_modules:/app/frontend/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:
