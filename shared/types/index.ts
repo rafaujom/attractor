@@ -63,6 +63,15 @@ export interface RecencyEntry {
 
 export type RecencyResponse = RecencyEntry[];
 
+export interface SequentialStreakEntry {
+  number: number;
+  currentStreak: number;
+  maxStreak: number;
+  minStreak: number;
+}
+
+export type SequentialStreakResponse = SequentialStreakEntry[];
+
 // ── Tickets ──────────────────────────────────────────────────────────────────
 // A ticket is the player's guess for a single draw (keyed by concurso). The
 // match count and prize flag are scored against that draw's winning numbers.

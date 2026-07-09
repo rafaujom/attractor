@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express';
 import Draw from '../models/Draw.js';
 import { fetchLatest } from '../services/scraper.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry } from '../../shared/types/index.js';
+import { computeSequentialStreaks } from '../services/streaks.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -142,6 +143,20 @@ router.get('/recency', async (_req: Request, res: Response) => {
     recency.sort((a, b) => b.daysAbsent - a.daysAbsent);
 
     res.json(recency);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/streaks/sequential ───────────────────────────────────────
+router.get('/streaks/sequential', async (_req: Request, res: Response) => {
+  try {
+    const draws = await Draw.find().sort({ concurso: 1 }).select('numbers -_id');
+
+    const streaks: SequentialStreakResponse = computeSequentialStreaks(draws)
+      .sort((a, b) => b.currentStreak - a.currentStreak);
+
+    res.json(streaks);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

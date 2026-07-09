@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getStats, getRecency } from './services/api';
-import type { StatsResponse, RecencyResponse } from '@shared/types';
-import Header           from './components/Header';
-import StatsCards       from './components/StatsCards';
-import GravityPieChart  from './components/GravityPieChart';
-import MonthlyBarChart  from './components/MonthlyBarChart';
-import MonthlyBreakdown from './components/MonthlyBreakdown';
-import RecencyChart     from './components/RecencyChart';
-import ResultsTable     from './components/ResultsTable';
+import { getStats, getRecency, getSequentialStreaks } from './services/api';
+import type { StatsResponse, RecencyResponse, SequentialStreakResponse } from '@shared/types';
+import Header                from './components/Header';
+import StatsCards            from './components/StatsCards';
+import GravityPieChart       from './components/GravityPieChart';
+import MonthlyBarChart       from './components/MonthlyBarChart';
+import MonthlyBreakdown      from './components/MonthlyBreakdown';
+import RecencyChart          from './components/RecencyChart';
+import SequentialStreakChart from './components/SequentialStreakChart';
+import ResultsTable          from './components/ResultsTable';
 
 export default function App() {
   const [stats,      setStats]      = useState<StatsResponse | null>(null);
   const [recency,    setRecency]    = useState<RecencyResponse | null>(null);
+  const [streaks,    setStreaks]    = useState<SequentialStreakResponse | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -20,9 +22,14 @@ export default function App() {
     try {
       setLoading(true);
       setError(null);
-      const [statsData, recencyData] = await Promise.all([getStats(), getRecency()]);
+      const [statsData, recencyData, streaksData] = await Promise.all([
+        getStats(),
+        getRecency(),
+        getSequentialStreaks(),
+      ]);
       setStats(statsData);
       setRecency(recencyData);
+      setStreaks(streaksData);
     } catch {
       setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     } finally {
@@ -58,6 +65,8 @@ export default function App() {
         <MonthlyBreakdown stats={stats} loading={loading} />
 
         <RecencyChart data={recency} loading={loading} />
+
+        <SequentialStreakChart data={streaks} loading={loading} />
 
         <ResultsTable refreshKey={refreshKey} />
       </main>
