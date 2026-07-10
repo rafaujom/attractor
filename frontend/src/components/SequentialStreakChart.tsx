@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
@@ -8,6 +9,9 @@ interface Props {
   data: SequentialStreakEntry[] | null;
   loading: boolean;
 }
+
+type SortColumn = 'currentStreak' | 'maxStreak';
+type SortDirection = 'asc' | 'desc';
 
 function barColor(currentStreak: number): string {
   if (currentStreak === 0) return '#cbd5e1';
@@ -36,7 +40,60 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   );
 }
 
+function SortableHeader({
+  label, column, activeColumn, direction, onSort,
+}: {
+  label: string;
+  column: SortColumn;
+  activeColumn: SortColumn | null;
+  direction: SortDirection;
+  onSort: (column: SortColumn) => void;
+}) {
+  const isActive = activeColumn === column;
+  return (
+    <th
+      onClick={() => onSort(column)}
+      className="px-4 py-2 font-semibold text-center cursor-pointer select-none hover:bg-slate-700"
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <span className={`text-[10px] ${isActive ? 'opacity-100' : 'opacity-30'}`}>
+          {isActive && direction === 'asc' ? '▲' : '▼'}
+        </span>
+      </span>
+    </th>
+  );
+}
+
 export default function SequentialStreakChart({ data, loading }: Props) {
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const chartData = useMemo(() => {
+    if (!data?.length) return [];
+    return [...data]
+      .sort((a, b) => b.currentStreak - a.currentStreak)
+      .map((d) => ({ ...d, label: String(d.number).padStart(2, '0') }));
+  }, [data]);
+
+  const tableRows = useMemo(() => {
+    if (!data?.length) return [];
+    const column = sortColumn ?? 'currentStreak';
+    const sign = sortColumn === null || sortDirection === 'desc' ? -1 : 1;
+    return [...data]
+      .sort((a, b) => sign * (a[column] - b[column]))
+      .map((d) => ({ ...d, label: String(d.number).padStart(2, '0') }));
+  }, [data, sortColumn, sortDirection]);
+
+  function handleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -46,10 +103,6 @@ export default function SequentialStreakChart({ data, loading }: Props) {
     );
   }
   if (!data?.length) return null;
-
-  const chartData = [...data]
-    .sort((a, b) => b.currentStreak - a.currentStreak)
-    .map((d) => ({ ...d, label: String(d.number).padStart(2, '0') }));
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -98,15 +151,26 @@ export default function SequentialStreakChart({ data, loading }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-800 text-white text-left">
-              {['Número', 'Sequência Atual', 'Sequência Máxima', 'Sequência Mínima'].map((h) => (
-                <th key={h} className="px-4 py-2 font-semibold text-center first:text-left">
-                  {h}
-                </th>
-              ))}
+              <th className="px-4 py-2 font-semibold text-left">Número</th>
+              <SortableHeader
+                label="Sequência Atual"
+                column="currentStreak"
+                activeColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Sequência Máxima"
+                column="maxStreak"
+                activeColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+              <th className="px-4 py-2 font-semibold text-center">Sequência Mínima</th>
             </tr>
           </thead>
           <tbody>
-            {chartData.map((d, i) => (
+            {tableRows.map((d, i) => (
               <tr
                 key={d.number}
                 className={`border-b border-slate-100 ${
