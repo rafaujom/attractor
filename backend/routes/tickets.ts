@@ -14,6 +14,7 @@ function serialize(t: ITicketDocument): TicketType {
     matches:   t.matches,
     hasPrize:  t.hasPrize,
     label:     t.label,
+    description: t.description,
     createdAt: t.createdAt?.toISOString(),
   };
 }
@@ -42,10 +43,11 @@ router.get('/', async (req: Request, res: Response) => {
 // server against the draw's winning numbers so they can't be spoofed by the client.
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { concurso, numbers, label } = req.body as {
+    const { concurso, numbers, label, description } = req.body as {
       concurso: unknown;
       numbers: unknown;
       label?: unknown;
+      description?: unknown;
     };
 
     if (!Number.isInteger(concurso)) {
@@ -88,6 +90,8 @@ router.post('/', async (req: Request, res: Response) => {
         matches,
         hasPrize,
         label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
+        description:
+          typeof description === 'string' && description.trim() ? description.trim() : undefined,
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );

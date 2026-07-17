@@ -18,6 +18,7 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
   );
   const [phase, setPhase] = useState<'pick' | 'result'>(existingTicket ? 'result' : 'pick');
   const [savedTicket, setSavedTicket] = useState<Ticket | null>(existingTicket);
+  const [description, setDescription] = useState(existingTicket?.description ?? '');
 
   const drawSet = new Set(draw.numbers);
   const isReadOnly = phase === 'result';
@@ -39,7 +40,13 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
     const pickedArr = Array.from(selected).sort((a, b) => a - b);
     const matches = pickedArr.filter((n) => drawSet.has(n)).length;
     const hasPrize = matches >= 11;
-    const ticket: Ticket = { concurso: draw.concurso, numbers: pickedArr, matches, hasPrize };
+    const ticket: Ticket = {
+      concurso: draw.concurso,
+      numbers: pickedArr,
+      matches,
+      hasPrize,
+      description: description.trim() || undefined,
+    };
     setSavedTicket(ticket);
     setPhase('result');
     onSave(ticket);
@@ -116,6 +123,30 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
               </button>
             ))}
           </div>
+
+          {/* Ticket details */}
+          {phase === 'pick' ? (
+            <div>
+              <p className="text-xs text-slate-500 font-medium mb-1.5">Detalhes (opcional)</p>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                maxLength={200}
+                placeholder="Anotações sobre este jogo…"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+              />
+            </div>
+          ) : (
+            savedTicket?.description && (
+              <div>
+                <p className="text-xs text-slate-500 font-medium mb-1.5">Detalhes</p>
+                <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                  {savedTicket.description}
+                </p>
+              </div>
+            )
+          )}
 
           {/* Draw result reference */}
           <div>

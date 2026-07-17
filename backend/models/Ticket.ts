@@ -6,6 +6,7 @@ export interface ITicketDocument extends mongoose.Document {
   hasPrize: boolean;
   numbers: number[];
   label?: string;
+  description?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +26,7 @@ const ticketSchema = new mongoose.Schema<ITicketDocument>(
       },
     },
     label: { type: String, trim: true },
+    description: { type: String, trim: true },
   },
   { timestamps: true }
 );

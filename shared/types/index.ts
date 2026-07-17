@@ -81,6 +81,7 @@ export interface Ticket {
   matches: number;
   hasPrize: boolean;
   label?: string;
+  description?: string;
   createdAt?: string;
 }
 
@@ -90,4 +91,5 @@ export interface TicketInput {
   concurso: number;
   numbers: number[];
   label?: string;
+  description?: string;
 }
