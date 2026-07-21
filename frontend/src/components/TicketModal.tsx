@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import type { Draw, Ticket } from '@shared/types';
+import type { Draw, Ticket, TicketInput } from '@shared/types';
 
 interface Props {
-  draw: Draw;
+  draw: Draw | null;
+  concurso: number;
+  concursoEditable: boolean;
   existingTicket: Ticket | null;
-  onSave: (ticket: Ticket) => void;
+  onSave: (ticket: TicketInput) => void;
   onClose: () => void;
 }
 
@@ -12,16 +14,28 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-export default function TicketModal({ draw, existingTicket, onSave, onClose }: Props) {
+export default function TicketModal({
+  draw,
+  concurso,
+  concursoEditable,
+  existingTicket,
+  onSave,
+  onClose,
+}: Props) {
   const [selected, setSelected] = useState<Set<number>>(
     existingTicket ? new Set(existingTicket.numbers) : new Set()
   );
-  const [phase, setPhase] = useState<'pick' | 'result'>(existingTicket ? 'result' : 'pick');
+  const [concursoValue, setConcursoValue] = useState(concurso);
+  const [phase, setPhase] = useState<'pick' | 'result'>(
+    draw && existingTicket ? 'result' : 'pick'
+  );
   const [savedTicket, setSavedTicket] = useState<Ticket | null>(existingTicket);
   const [description, setDescription] = useState(existingTicket?.description ?? '');
 
-  const drawSet = new Set(draw.numbers);
+  const drawSet = new Set(draw?.numbers ?? []);
   const isReadOnly = phase === 'result';
+  const effectiveConcurso = concursoEditable ? concursoValue : concurso;
+  const isConcursoValid = Number.isInteger(effectiveConcurso) && effectiveConcurso > 0;
 
   function toggleNumber(n: number) {
     if (isReadOnly) return;
@@ -38,18 +52,22 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
 
   function handleSave() {
     const pickedArr = Array.from(selected).sort((a, b) => a - b);
-    const matches = pickedArr.filter((n) => drawSet.has(n)).length;
-    const hasPrize = matches >= 11;
-    const ticket: Ticket = {
-      concurso: draw.concurso,
+    const ticketInput: TicketInput = {
+      concurso: effectiveConcurso,
       numbers: pickedArr,
-      matches,
-      hasPrize,
       description: description.trim() || undefined,
     };
-    setSavedTicket(ticket);
-    setPhase('result');
-    onSave(ticket);
+
+    if (draw) {
+      const matches = pickedArr.filter((n) => drawSet.has(n)).length;
+      const hasPrize = matches >= 11;
+      setSavedTicket({ ...ticketInput, matches, hasPrize });
+      setPhase('result');
+    }
+
+    onSave(ticketInput);
+
+    if (!draw) onClose();
   }
 
   function getBallClass(n: number): string {
@@ -76,10 +94,25 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
           <div>
-            <h3 className="font-semibold text-slate-800">
-              Concurso #{draw.concurso}
-            </h3>
-            <p className="text-xs text-slate-400">{formatDate(draw.date)}</p>
+            {concursoEditable ? (
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-800">Concurso #</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={concursoValue}
+                  onChange={(e) => setConcursoValue(Number(e.target.value))}
+                  className="w-24 text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+            ) : (
+              <h3 className="font-semibold text-slate-800">
+                Concurso #{concurso}
+              </h3>
+            )}
+            <p className="text-xs text-slate-400">
+              {draw ? formatDate(draw.date) : 'Aguardando resultado'}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -149,19 +182,21 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
           )}
 
           {/* Draw result reference */}
-          <div>
-            <p className="text-xs text-slate-500 font-medium mb-1.5">Resultado do Concurso</p>
-            <div className="flex flex-wrap gap-1.5">
-              {draw.numbers.map((n) => (
-                <span
-                  key={n}
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold"
-                >
-                  {String(n).padStart(2, '0')}
-                </span>
-              ))}
+          {draw && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium mb-1.5">Resultado do Concurso</p>
+              <div className="flex flex-wrap gap-1.5">
+                {draw.numbers.map((n) => (
+                  <span
+                    key={n}
+                    className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold"
+                  >
+                    {String(n).padStart(2, '0')}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -176,7 +211,7 @@ export default function TicketModal({ draw, existingTicket, onSave, onClose }: P
               </button>
               <button
                 onClick={handleSave}
-                disabled={selected.size !== 15}
+                disabled={selected.size !== 15 || !isConcursoValid}
                 className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Salvar
