@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import Draw from '../models/Draw.js';
 import { fetchLatest } from '../services/scraper.js';
 import { computeSequentialStreaks } from '../services/streaks.js';
+import { scorePendingTickets } from '../services/scoring.js';
 import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
@@ -197,6 +198,8 @@ router.post('/fetch', async (_req: Request, res: Response) => {
     }));
 
     const result = await Draw.bulkWrite(ops);
+    await scorePendingTickets(newDraws.map((d: DrawInput) => ({ concurso: d.concurso, numbers: d.numbers })));
+
     res.json({
       inserted: result.upsertedCount,
       modified: result.modifiedCount,
