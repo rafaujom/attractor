@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import axios from 'axios';
 import type { Draw, Ticket, TicketInput } from '@shared/types';
 
 interface Props {
@@ -6,12 +7,20 @@ interface Props {
   concurso: number;
   concursoEditable: boolean;
   existingTicket: Ticket | null;
-  onSave: (ticket: TicketInput) => void;
+  onSave: (ticket: TicketInput) => Promise<Ticket>;
   onClose: () => void;
 }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
+}
+
+function extractErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { error?: unknown } | undefined;
+    if (typeof data?.error === 'string') return data.error;
+  }
+  return 'Erro ao salvar aposta. Tente novamente.';
 }
 
 export default function TicketModal({
@@ -31,6 +40,8 @@ export default function TicketModal({
   );
   const [savedTicket, setSavedTicket] = useState<Ticket | null>(existingTicket);
   const [description, setDescription] = useState(existingTicket?.description ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const drawSet = new Set(draw?.numbers ?? []);
   const isReadOnly = phase === 'result';
@@ -50,7 +61,7 @@ export default function TicketModal({
     });
   }
 
-  function handleSave() {
+  async function handleSave() {
     const pickedArr = Array.from(selected).sort((a, b) => a - b);
     const ticketInput: TicketInput = {
       concurso: effectiveConcurso,
@@ -58,16 +69,21 @@ export default function TicketModal({
       description: description.trim() || undefined,
     };
 
-    if (draw) {
-      const matches = pickedArr.filter((n) => drawSet.has(n)).length;
-      const hasPrize = matches >= 11;
-      setSavedTicket({ ...ticketInput, matches, hasPrize });
-      setPhase('result');
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const saved = await onSave(ticketInput);
+      if (draw) {
+        setSavedTicket(saved);
+        setPhase('result');
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      setSaveError(extractErrorMessage(err));
+    } finally {
+      setSaving(false);
     }
-
-    onSave(ticketInput);
-
-    if (!draw) onClose();
   }
 
   function getBallClass(n: number): string {
@@ -123,6 +139,12 @@ export default function TicketModal({
         </div>
 
         <div className="px-6 py-4 space-y-4">
+          {saveError && (
+            <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 border border-red-200">
+              ⚠️ {saveError}
+            </div>
+          )}
+
           {/* Result summary */}
           {phase === 'result' && savedTicket && (
             <div className={`rounded-lg p-3 text-sm font-semibold text-center ${
@@ -211,10 +233,10 @@ export default function TicketModal({
               </button>
               <button
                 onClick={handleSave}
-                disabled={selected.size !== 15 || !isConcursoValid}
+                disabled={selected.size !== 15 || !isConcursoValid || saving}
                 className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Salvar
+                {saving ? 'Salvando…' : 'Salvar'}
               </button>
             </>
           ) : (

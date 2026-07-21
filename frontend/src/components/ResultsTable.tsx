@@ -64,8 +64,8 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   useEffect(() => { load(); }, [load, refreshKey]);
   useEffect(() => { setPage(1); }, [category]);
 
-  function handleSave(ticket: TicketInput) {
-    saveTicket(ticket).then((saved) => {
+  function handleSave(ticket: TicketInput): Promise<Ticket> {
+    return saveTicket(ticket).then((saved) => {
       if (saved.matches !== null) {
         setTickets((prev) => ({ ...prev, [saved.concurso]: saved }));
         setPendingTickets((prev) => prev.filter((t) => t.concurso !== saved.concurso));
@@ -75,6 +75,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
           return [saved, ...others].sort((a, b) => b.concurso - a.concurso);
         });
       }
+      return saved;
     });
   }
 
