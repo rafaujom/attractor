@@ -78,8 +78,8 @@ export type SequentialStreakResponse = SequentialStreakEntry[];
 export interface Ticket {
   concurso: number;
   numbers: number[];
-  matches: number;
-  hasPrize: boolean;
+  matches: number | null;
+  hasPrize: boolean | null;
   label?: string;
   description?: string;
   createdAt?: string;
