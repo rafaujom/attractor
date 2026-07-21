@@ -38,7 +38,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
   const [modalTarget,    setModalTarget]    = useState<ModalTarget | null>(null);
   const [confirmDeleteConcurso, setConfirmDeleteConcurso] = useState<number | null>(null);
-  const [deletingConcurso,      setDeletingConcurso]      = useState<number | null>(null);
+  const [deletingConcursos,     setDeletingConcursos]     = useState<Set<number>>(new Set());
   const [deleteError,           setDeleteError]           = useState<{ concurso: number; message: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -83,19 +83,23 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   }
 
   function handleDelete(concurso: number) {
-    setDeletingConcurso(concurso);
+    setDeletingConcursos((prev) => new Set(prev).add(concurso));
     setDeleteError(null);
     deleteTicket(concurso)
       .then(() => {
         setPendingTickets((prev) => prev.filter((t) => t.concurso !== concurso));
-        setConfirmDeleteConcurso(null);
+        setConfirmDeleteConcurso((c) => (c === concurso ? null : c));
       })
       .catch((err) => {
         setDeleteError({ concurso, message: extractErrorMessage(err, 'Erro ao remover aposta. Tente novamente.') });
-        setConfirmDeleteConcurso(null);
+        setConfirmDeleteConcurso((c) => (c === concurso ? null : c));
       })
       .finally(() => {
-        setDeletingConcurso(null);
+        setDeletingConcursos((prev) => {
+          const next = new Set(prev);
+          next.delete(concurso);
+          return next;
+        });
       });
   }
 
@@ -126,7 +130,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   }
 
   function pendingTicketButton(ticket: Ticket) {
-    const disabled = confirmDeleteConcurso === ticket.concurso || deletingConcurso === ticket.concurso;
+    const disabled = confirmDeleteConcurso === ticket.concurso || deletingConcursos.has(ticket.concurso);
     return (
       <button
         onClick={() => setModalTarget({ kind: 'pending-edit', ticket })}
@@ -139,7 +143,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   }
 
   function pendingDeleteControl(ticket: Ticket) {
-    const isDeleting = deletingConcurso === ticket.concurso;
+    const isDeleting = deletingConcursos.has(ticket.concurso);
 
     if (confirmDeleteConcurso === ticket.concurso) {
       return (
@@ -167,10 +171,11 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
     return (
       <button
         onClick={() => setConfirmDeleteConcurso(ticket.concurso)}
+        disabled={isDeleting}
         title="Remover aposta"
-        className="px-1.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+        className="px-1.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
-        🗑️
+        {isDeleting ? '…' : '🗑️'}
       </button>
     );
   }
