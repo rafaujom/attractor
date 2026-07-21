@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDraws, getTickets, saveTicket } from '../services/api';
-import type { DrawsResponse, GravityCategory, Draw, Ticket } from '@shared/types';
+import { getDraws, getTickets, getPendingTickets, saveTicket } from '../services/api';
+import type { DrawsResponse, GravityCategory, Draw, Ticket, TicketInput } from '@shared/types';
 import TicketModal from './TicketModal';
 
 interface Props {
   refreshKey?: number;
+  latestConcurso?: number;
 }
+
+type ModalTarget =
+  | { kind: 'draw'; draw: Draw }
+  | { kind: 'pending-edit'; ticket: Ticket }
+  | { kind: 'pending-new' };
 
 const CAT_BADGE: Record<GravityCategory, string> = {
   'high-gravity':  'bg-red-100 text-red-700',
@@ -23,19 +29,24 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-export default function ResultsTable({ refreshKey }: Props) {
-  const [data,      setData]      = useState<DrawsResponse | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [page,      setPage]      = useState(1);
-  const [category,  setCategory]  = useState('');
-  const [tickets,   setTickets]   = useState<Record<number, Ticket>>({});
-  const [modalDraw, setModalDraw] = useState<Draw | null>(null);
+export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
+  const [data,           setData]           = useState<DrawsResponse | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [page,           setPage]           = useState(1);
+  const [category,       setCategory]       = useState('');
+  const [tickets,        setTickets]        = useState<Record<number, Ticket>>({});
+  const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
+  const [modalTarget,    setModalTarget]    = useState<ModalTarget | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getDraws({ page, limit: 20, category: category || undefined });
+      const [res, pending] = await Promise.all([
+        getDraws({ page, limit: 20, category: category || undefined }),
+        getPendingTickets(),
+      ]);
       setData(res);
+      setPendingTickets(pending);
       if (res.draws.length > 0) {
         const concursos = res.draws.map((d) => d.concurso);
         const list = await getTickets(concursos);
@@ -53,9 +64,17 @@ export default function ResultsTable({ refreshKey }: Props) {
   useEffect(() => { load(); }, [load, refreshKey]);
   useEffect(() => { setPage(1); }, [category]);
 
-  function handleSave(ticket: Ticket) {
+  function handleSave(ticket: TicketInput) {
     saveTicket(ticket).then((saved) => {
-      setTickets((prev) => ({ ...prev, [saved.concurso]: saved }));
+      if (saved.matches !== null) {
+        setTickets((prev) => ({ ...prev, [saved.concurso]: saved }));
+        setPendingTickets((prev) => prev.filter((t) => t.concurso !== saved.concurso));
+      } else {
+        setPendingTickets((prev) => {
+          const others = prev.filter((t) => t.concurso !== saved.concurso);
+          return [saved, ...others].sort((a, b) => b.concurso - a.concurso);
+        });
+      }
     });
   }
 
@@ -64,7 +83,7 @@ export default function ResultsTable({ refreshKey }: Props) {
     if (!t) {
       return (
         <button
-          onClick={() => setModalDraw(draw)}
+          onClick={() => setModalTarget({ kind: 'draw', draw })}
           className="px-2 py-1 text-xs rounded-lg border border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
         >
           + My Ticket
@@ -73,7 +92,7 @@ export default function ResultsTable({ refreshKey }: Props) {
     }
     return (
       <button
-        onClick={() => setModalDraw(draw)}
+        onClick={() => setModalTarget({ kind: 'draw', draw })}
         className={`px-2 py-1 text-xs rounded-lg font-semibold border transition-colors whitespace-nowrap ${
           t.hasPrize
             ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
@@ -85,22 +104,44 @@ export default function ResultsTable({ refreshKey }: Props) {
     );
   }
 
+  function pendingTicketButton(ticket: Ticket) {
+    return (
+      <button
+        onClick={() => setModalTarget({ kind: 'pending-edit', ticket })}
+        className="px-2 py-1 text-xs rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors whitespace-nowrap"
+      >
+        🕒 {ticket.numbers.length} números
+      </button>
+    );
+  }
+
+  const showPending = page === 1 && !category && pendingTickets.length > 0;
+  const isEmpty = (data?.draws?.length ?? 0) === 0 && !showPending;
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <h2 className="text-base font-semibold text-slate-700">
           📋 Todos os Concursos
         </h2>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        >
-          <option value="">Todas as categorias</option>
-          <option value="high-gravity">🔴 High-Gravity</option>
-          <option value="mid-gravity">🔵 Mid-Gravity</option>
-          <option value="small-gravity">🟢 Small-Gravity</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setModalTarget({ kind: 'pending-new' })}
+            className="text-sm px-3 py-1.5 rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
+          >
+            + Nova Aposta
+          </button>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            <option value="">Todas as categorias</option>
+            <option value="high-gravity">🔴 High-Gravity</option>
+            <option value="mid-gravity">🔵 Mid-Gravity</option>
+            <option value="small-gravity">🟢 Small-Gravity</option>
+          </select>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -123,37 +164,55 @@ export default function ResultsTable({ refreshKey }: Props) {
                   ))}
                 </tr>
               ))
-            ) : data?.draws?.length === 0 ? (
+            ) : isEmpty ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                   Nenhum resultado encontrado.
                 </td>
               </tr>
             ) : (
-              data?.draws?.map((draw, i) => (
-                <tr
-                  key={draw.concurso}
-                  className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-blue-50 transition-colors`}
-                >
-                  <td className="px-4 py-2 font-mono font-medium text-slate-600">
-                    #{draw.concurso}
-                  </td>
-                  <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
-                    {formatDate(draw.date)}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${CAT_BADGE[draw.category]}`}>
-                      {CAT_EMOJI[draw.category]} {draw.category}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs text-slate-600 tracking-wide">
-                    {draw.numbers.map((n) => String(n).padStart(2, '0')).join(' · ')}
-                  </td>
-                  <td className="px-4 py-2">
-                    {ticketButton(draw)}
-                  </td>
-                </tr>
-              ))
+              <>
+                {showPending && pendingTickets.map((ticket) => (
+                  <tr
+                    key={`pending-${ticket.concurso}`}
+                    className="border-b border-slate-100 bg-amber-50/60 hover:bg-amber-50 transition-colors"
+                  >
+                    <td className="px-4 py-2 font-mono font-medium text-slate-600">
+                      #{ticket.concurso}
+                    </td>
+                    <td className="px-4 py-2 text-slate-400 italic whitespace-nowrap">—</td>
+                    <td className="px-4 py-2 text-slate-400 italic">—</td>
+                    <td className="px-4 py-2 text-slate-400 italic">—</td>
+                    <td className="px-4 py-2">
+                      {pendingTicketButton(ticket)}
+                    </td>
+                  </tr>
+                ))}
+                {data?.draws?.map((draw, i) => (
+                  <tr
+                    key={draw.concurso}
+                    className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-blue-50 transition-colors`}
+                  >
+                    <td className="px-4 py-2 font-mono font-medium text-slate-600">
+                      #{draw.concurso}
+                    </td>
+                    <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
+                      {formatDate(draw.date)}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${CAT_BADGE[draw.category]}`}>
+                        {CAT_EMOJI[draw.category]} {draw.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs text-slate-600 tracking-wide">
+                      {draw.numbers.map((n) => String(n).padStart(2, '0')).join(' · ')}
+                    </td>
+                    <td className="px-4 py-2">
+                      {ticketButton(draw)}
+                    </td>
+                  </tr>
+                ))}
+              </>
             )}
           </tbody>
         </table>
@@ -185,12 +244,34 @@ export default function ResultsTable({ refreshKey }: Props) {
         </div>
       )}
 
-      {modalDraw && (
+      {modalTarget?.kind === 'draw' && (
         <TicketModal
-          draw={modalDraw}
-          existingTicket={tickets[modalDraw.concurso] ?? null}
+          draw={modalTarget.draw}
+          concurso={modalTarget.draw.concurso}
+          concursoEditable={false}
+          existingTicket={tickets[modalTarget.draw.concurso] ?? null}
           onSave={handleSave}
-          onClose={() => setModalDraw(null)}
+          onClose={() => setModalTarget(null)}
+        />
+      )}
+      {modalTarget?.kind === 'pending-edit' && (
+        <TicketModal
+          draw={null}
+          concurso={modalTarget.ticket.concurso}
+          concursoEditable={false}
+          existingTicket={modalTarget.ticket}
+          onSave={handleSave}
+          onClose={() => setModalTarget(null)}
+        />
+      )}
+      {modalTarget?.kind === 'pending-new' && (
+        <TicketModal
+          draw={null}
+          concurso={(latestConcurso ?? data?.draws?.[0]?.concurso ?? 0) + 1}
+          concursoEditable={true}
+          existingTicket={null}
+          onSave={handleSave}
+          onClose={() => setModalTarget(null)}
         />
       )}
     </div>

@@ -31,5 +31,8 @@ export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
     .get('/tickets', { params: { concursos: concursos.join(',') } })
     .then((r) => r.data as Ticket[]);
 
+export const getPendingTickets = (): Promise<Ticket[]> =>
+  api.get('/tickets/pending').then((r) => r.data as Ticket[]);
+
 export const saveTicket = (ticket: TicketInput): Promise<Ticket> =>
   api.post('/tickets', ticket).then((r) => r.data as Ticket);
