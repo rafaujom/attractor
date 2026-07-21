@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 export interface ITicketDocument extends mongoose.Document {
   concurso: number;
-  matches: number;
-  hasPrize: boolean;
+  matches: number | null;
+  hasPrize: boolean | null;
   numbers: number[];
   label?: string;
   description?: string;
@@ -14,8 +14,8 @@ export interface ITicketDocument extends mongoose.Document {
 const ticketSchema = new mongoose.Schema<ITicketDocument>(
   {
     concurso: { type: Number, required: true, unique: true, index: true },
-    matches:  { type: Number, required: true },
-    hasPrize: { type: Boolean, required: true },
+    matches:  { type: Number, default: null },
+    hasPrize: { type: Boolean, default: null },
     numbers: {
       type: [Number],
       required: true,
