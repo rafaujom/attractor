@@ -125,4 +125,33 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+// ── DELETE /api/tickets/:concurso ─────────────────────────────────────────────
+// Removes a pending ticket (matches is still null — no result yet). Scored
+// tickets are permanent history and cannot be deleted through this endpoint.
+router.delete('/:concurso', async (req: Request, res: Response) => {
+  try {
+    const concurso = Number(req.params.concurso);
+    if (!Number.isInteger(concurso)) {
+      res.status(400).json({ error: 'A valid concurso number is required.' });
+      return;
+    }
+
+    const ticket = await Ticket.findOne({ concurso });
+    if (!ticket) {
+      res.status(404).json({ error: `Ticket for draw #${concurso} not found.` });
+      return;
+    }
+
+    if (ticket.matches !== null) {
+      res.status(400).json({ error: 'Only pending tickets (not yet drawn) can be removed.' });
+      return;
+    }
+
+    await Ticket.deleteOne({ concurso });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export default router;
