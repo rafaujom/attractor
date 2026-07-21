@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { extractErrorMessage } from '../services/api';
 import type { Draw, Ticket, TicketInput } from '@shared/types';
 
 interface Props {
@@ -13,14 +13,6 @@ interface Props {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
-}
-
-function extractErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { error?: unknown } | undefined;
-    if (typeof data?.error === 'string') return data.error;
-  }
-  return 'Erro ao salvar aposta. Tente novamente.';
 }
 
 export default function TicketModal({
@@ -80,7 +72,7 @@ export default function TicketModal({
         onClose();
       }
     } catch (err) {
-      setSaveError(extractErrorMessage(err));
+      setSaveError(extractErrorMessage(err, 'Erro ao salvar aposta. Tente novamente.'));
     } finally {
       setSaving(false);
     }

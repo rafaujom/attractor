@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDraws, getTickets, getPendingTickets, saveTicket } from '../services/api';
+import { getDraws, getTickets, getPendingTickets, saveTicket, deleteTicket, extractErrorMessage } from '../services/api';
 import type { DrawsResponse, GravityCategory, Draw, Ticket, TicketInput } from '@shared/types';
 import TicketModal from './TicketModal';
 
@@ -37,6 +37,9 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   const [tickets,        setTickets]        = useState<Record<number, Ticket>>({});
   const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
   const [modalTarget,    setModalTarget]    = useState<ModalTarget | null>(null);
+  const [confirmDeleteConcurso, setConfirmDeleteConcurso] = useState<number | null>(null);
+  const [deletingConcurso,      setDeletingConcurso]      = useState<number | null>(null);
+  const [deleteError,           setDeleteError]           = useState<{ concurso: number; message: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +82,23 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
     });
   }
 
+  function handleDelete(concurso: number) {
+    setDeletingConcurso(concurso);
+    setDeleteError(null);
+    deleteTicket(concurso)
+      .then(() => {
+        setPendingTickets((prev) => prev.filter((t) => t.concurso !== concurso));
+        setConfirmDeleteConcurso(null);
+      })
+      .catch((err) => {
+        setDeleteError({ concurso, message: extractErrorMessage(err, 'Erro ao remover aposta. Tente novamente.') });
+        setConfirmDeleteConcurso(null);
+      })
+      .finally(() => {
+        setDeletingConcurso(null);
+      });
+  }
+
   function ticketButton(draw: Draw) {
     const t = tickets[draw.concurso];
     if (!t) {
@@ -106,12 +126,51 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   }
 
   function pendingTicketButton(ticket: Ticket) {
+    const disabled = confirmDeleteConcurso === ticket.concurso || deletingConcurso === ticket.concurso;
     return (
       <button
         onClick={() => setModalTarget({ kind: 'pending-edit', ticket })}
-        className="px-2 py-1 text-xs rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors whitespace-nowrap"
+        disabled={disabled}
+        className="px-2 py-1 text-xs rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
       >
         🕒 {ticket.numbers.length} números
+      </button>
+    );
+  }
+
+  function pendingDeleteControl(ticket: Ticket) {
+    const isDeleting = deletingConcurso === ticket.concurso;
+
+    if (confirmDeleteConcurso === ticket.concurso) {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <button
+            onClick={() => handleDelete(ticket.concurso)}
+            disabled={isDeleting}
+            title="Confirmar remoção"
+            className="px-1.5 py-1 text-xs rounded-lg border border-red-300 text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ✓
+          </button>
+          <button
+            onClick={() => setConfirmDeleteConcurso(null)}
+            disabled={isDeleting}
+            title="Cancelar"
+            className="px-1.5 py-1 text-xs rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ✕
+          </button>
+        </span>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => setConfirmDeleteConcurso(ticket.concurso)}
+        title="Remover aposta"
+        className="px-1.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+      >
+        🗑️
       </button>
     );
   }
@@ -185,7 +244,13 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
                     <td className="px-4 py-2 text-slate-400 italic">—</td>
                     <td className="px-4 py-2 text-slate-400 italic">—</td>
                     <td className="px-4 py-2">
-                      {pendingTicketButton(ticket)}
+                      <div className="flex items-center gap-1.5">
+                        {pendingTicketButton(ticket)}
+                        {pendingDeleteControl(ticket)}
+                      </div>
+                      {deleteError?.concurso === ticket.concurso && (
+                        <p className="text-xs text-red-600 mt-1">{deleteError.message}</p>
+                      )}
                     </td>
                   </tr>
                 ))}
