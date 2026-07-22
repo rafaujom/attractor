@@ -21,11 +21,15 @@ function computeSequentialStreaks(draws: DrawNumbers[]): SequentialStreakEntry[]
       }
     }
 
+    const avgStreak = completedRuns.length > 0
+      ? Math.round((completedRuns.reduce((sum, run) => sum + run, 0) / completedRuns.length) * 10) / 10
+      : 0;
+
     entries.push({
       number,
       currentStreak: current,
       maxStreak: Math.max(current, ...completedRuns, 0),
-      minStreak: completedRuns.length > 0 ? Math.min(...completedRuns) : 0,
+      avgStreak,
     });
   }
 

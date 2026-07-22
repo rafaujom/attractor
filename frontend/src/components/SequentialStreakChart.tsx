@@ -35,7 +35,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
         Sequência atual: {entry.currentStreak}
       </p>
       <p className="text-slate-500">Máxima: {entry.maxStreak}</p>
-      <p className="text-slate-500">Mínima: {entry.minStreak}</p>
+      <p className="text-slate-500">Média: {entry.avgStreak.toFixed(1)}</p>
     </div>
   );
 }
@@ -166,7 +166,12 @@ export default function SequentialStreakChart({ data, loading }: Props) {
                 direction={sortDirection}
                 onSort={handleSort}
               />
-              <th className="px-4 py-2 font-semibold text-center">Sequência Mínima</th>
+              <th
+                className="px-4 py-2 font-semibold text-center cursor-help"
+                title="Comprimento médio de todas as sequências consecutivas completas deste número em todos os sorteios"
+              >
+                Média
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -182,7 +187,7 @@ export default function SequentialStreakChart({ data, loading }: Props) {
                   {d.currentStreak}
                 </td>
                 <td className="px-4 py-2 text-center">{d.maxStreak}</td>
-                <td className="px-4 py-2 text-center">{d.minStreak}</td>
+                <td className="px-4 py-2 text-center">{d.avgStreak.toFixed(1)}</td>
               </tr>
             ))}
           </tbody>
