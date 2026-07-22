@@ -31,5 +31,19 @@ export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
     .get('/tickets', { params: { concursos: concursos.join(',') } })
     .then((r) => r.data as Ticket[]);
 
+export const getPendingTickets = (): Promise<Ticket[]> =>
+  api.get('/tickets/pending').then((r) => r.data as Ticket[]);
+
+export function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { error?: unknown } | undefined;
+    if (typeof data?.error === 'string') return data.error;
+  }
+  return fallback;
+}
+
+export const deleteTicket = (concurso: number): Promise<void> =>
+  api.delete(`/tickets/${concurso}`).then(() => undefined);
+
 export const saveTicket = (ticket: TicketInput): Promise<Ticket> =>
   api.post('/tickets', ticket).then((r) => r.data as Ticket);
