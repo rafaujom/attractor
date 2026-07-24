@@ -68,7 +68,7 @@ export default function App() {
 
         <SequentialStreakChart data={streaks} loading={loading} />
 
-        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} />
+        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} streaks={streaks} />
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200">

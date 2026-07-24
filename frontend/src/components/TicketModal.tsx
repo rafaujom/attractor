@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { extractErrorMessage } from '../services/api';
-import type { Draw, Ticket, TicketInput } from '@shared/types';
+import type { Draw, Ticket, TicketInput, SequentialStreakEntry, SequentialStreakResponse } from '@shared/types';
 
 interface Props {
   draw: Draw | null;
   concurso: number;
   concursoEditable: boolean;
   existingTicket: Ticket | null;
+  streaks?: SequentialStreakResponse | null;
   onSave: (ticket: TicketInput) => Promise<Ticket>;
   onClose: () => void;
 }
@@ -15,11 +16,16 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
+function statLine(n: number, entry: SequentialStreakEntry): string {
+  return `Nº ${String(n).padStart(2, '0')} — Atual: ${entry.currentStreak} | Máx: ${entry.maxStreak} | Média: ${entry.avgStreak.toFixed(1)}`;
+}
+
 export default function TicketModal({
   draw,
   concurso,
   concursoEditable,
   existingTicket,
+  streaks,
   onSave,
   onClose,
 }: Props) {
@@ -39,18 +45,38 @@ export default function TicketModal({
   const isReadOnly = phase === 'result';
   const effectiveConcurso = concursoEditable ? concursoValue : concurso;
   const isConcursoValid = Number.isInteger(effectiveConcurso) && effectiveConcurso > 0;
+  const streaksMap = useMemo(
+    () => new Map((streaks ?? []).map((e) => [e.number, e])),
+    [streaks]
+  );
 
   function toggleNumber(n: number) {
     if (isReadOnly) return;
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(n)) {
-        next.delete(n);
-      } else if (next.size < 15) {
-        next.add(n);
-      }
-      return next;
-    });
+    const wasSelected = selected.has(n);
+    if (!wasSelected && selected.size >= 15) return;
+
+    const next = new Set(selected);
+    if (wasSelected) {
+      next.delete(n);
+    } else {
+      next.add(n);
+    }
+    setSelected(next);
+
+    const entry = streaksMap.get(n);
+    if (entry) {
+      setDescription((prevDesc) => {
+        if (!wasSelected) {
+          const line = statLine(n, entry);
+          return prevDesc ? `${prevDesc}\n${line}` : line;
+        }
+        const prefix = `Nº ${String(n).padStart(2, '0')} —`;
+        return prevDesc
+          .split('\n')
+          .filter((l) => !l.startsWith(prefix))
+          .join('\n');
+      });
+    }
   }
 
   async function handleSave() {
