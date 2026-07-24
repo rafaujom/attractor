@@ -10,7 +10,7 @@ interface Props {
   loading: boolean;
 }
 
-type SortColumn = 'currentStreak' | 'maxStreak';
+type SortColumn = 'currentStreak' | 'maxStreak' | 'avgStreak' | 'medianStreak' | 'stdDevStreak';
 type SortDirection = 'asc' | 'desc';
 
 function barColor(currentStreak: number): string {
@@ -43,18 +43,20 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 }
 
 function SortableHeader({
-  label, column, activeColumn, direction, onSort,
+  label, column, activeColumn, direction, onSort, title,
 }: {
   label: string;
   column: SortColumn;
   activeColumn: SortColumn | null;
   direction: SortDirection;
   onSort: (column: SortColumn) => void;
+  title?: string;
 }) {
   const isActive = activeColumn === column;
   return (
     <th
       onClick={() => onSort(column)}
+      title={title}
       className="px-4 py-2 font-semibold text-center cursor-pointer select-none hover:bg-slate-700"
     >
       <span className="inline-flex items-center gap-1">
@@ -168,24 +170,30 @@ export default function SequentialStreakChart({ data, loading }: Props) {
                 direction={sortDirection}
                 onSort={handleSort}
               />
-              <th
-                className="px-4 py-2 font-semibold text-center cursor-help"
+              <SortableHeader
+                label="Média"
+                column="avgStreak"
+                activeColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
                 title="Comprimento médio de todas as sequências consecutivas completas deste número em todos os sorteios"
-              >
-                Média
-              </th>
-              <th
-                className="px-4 py-2 font-semibold text-center cursor-help"
+              />
+              <SortableHeader
+                label="Mediana"
+                column="medianStreak"
+                activeColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
                 title="Valor central de todas as sequências consecutivas completas deste número em todos os sorteios"
-              >
-                Mediana
-              </th>
-              <th
-                className="px-4 py-2 font-semibold text-center cursor-help"
+              />
+              <SortableHeader
+                label="Desvio Padrão"
+                column="stdDevStreak"
+                activeColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
                 title="Dispersão (desvio padrão) das sequências consecutivas completas deste número em todos os sorteios"
-              >
-                Desvio Padrão
-              </th>
+              />
             </tr>
           </thead>
           <tbody>
