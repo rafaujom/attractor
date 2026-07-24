@@ -68,6 +68,8 @@ export interface SequentialStreakEntry {
   currentStreak: number;
   maxStreak: number;
   avgStreak: number;
+  medianStreak: number;
+  stdDevStreak: number;
 }
 
 export type SequentialStreakResponse = SequentialStreakEntry[];

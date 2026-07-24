@@ -36,6 +36,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
       </p>
       <p className="text-slate-500">Máxima: {entry.maxStreak}</p>
       <p className="text-slate-500">Média: {entry.avgStreak.toFixed(1)}</p>
+      <p className="text-slate-500">Mediana: {entry.medianStreak.toFixed(1)}</p>
+      <p className="text-slate-500">Desvio Padrão: {entry.stdDevStreak.toFixed(1)}</p>
     </div>
   );
 }
@@ -172,6 +174,18 @@ export default function SequentialStreakChart({ data, loading }: Props) {
               >
                 Média
               </th>
+              <th
+                className="px-4 py-2 font-semibold text-center cursor-help"
+                title="Valor central de todas as sequências consecutivas completas deste número em todos os sorteios"
+              >
+                Mediana
+              </th>
+              <th
+                className="px-4 py-2 font-semibold text-center cursor-help"
+                title="Dispersão (desvio padrão) das sequências consecutivas completas deste número em todos os sorteios"
+              >
+                Desvio Padrão
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -188,6 +202,8 @@ export default function SequentialStreakChart({ data, loading }: Props) {
                 </td>
                 <td className="px-4 py-2 text-center">{d.maxStreak}</td>
                 <td className="px-4 py-2 text-center">{d.avgStreak.toFixed(1)}</td>
+                <td className="px-4 py-2 text-center">{d.medianStreak.toFixed(1)}</td>
+                <td className="px-4 py-2 text-center">{d.stdDevStreak.toFixed(1)}</td>
               </tr>
             ))}
           </tbody>
