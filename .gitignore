@@ -12,3 +12,6 @@ dist
 
 # superpower docs
 docs
+
+# git worktrees
+.worktrees
