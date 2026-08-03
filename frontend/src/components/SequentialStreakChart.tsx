@@ -3,20 +3,27 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
-import type { SequentialStreakEntry } from '@shared/types';
+import type { SequentialStreakEntry, RecencyResponse } from '@shared/types';
 
 interface Props {
   data: SequentialStreakEntry[] | null;
+  recency: RecencyResponse | null;
   loading: boolean;
 }
 
-type SortColumn = 'currentStreak' | 'maxStreak' | 'avgStreak' | 'medianStreak' | 'stdDevStreak';
+type SortColumn = 'daysAbsent' | 'currentStreak' | 'maxStreak' | 'avgStreak' | 'medianStreak' | 'stdDevStreak';
 type SortDirection = 'asc' | 'desc';
 
 function barColor(currentStreak: number): string {
   if (currentStreak === 0) return '#cbd5e1';
   if (currentStreak <= 2)  return '#27ae60';
   if (currentStreak <= 4)  return '#f39c12';
+  return '#e74c3c';
+}
+
+function daysAbsentColor(daysAbsent: number): string {
+  if (daysAbsent <= 7)  return '#27ae60';
+  if (daysAbsent <= 14) return '#f39c12';
   return '#e74c3c';
 }
 
@@ -69,25 +76,36 @@ function SortableHeader({
   );
 }
 
-export default function SequentialStreakChart({ data, loading }: Props) {
+export default function SequentialStreakChart({ data, recency, loading }: Props) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  const chartData = useMemo(() => {
+  const recencyMap = useMemo(() => {
+    const map = new Map<number, number>();
+    recency?.forEach((r) => map.set(r.number, r.daysAbsent));
+    return map;
+  }, [recency]);
+
+  const enrichedData = useMemo(() => {
     if (!data?.length) return [];
-    return [...data]
+    return data.map((d) => ({ ...d, daysAbsent: recencyMap.get(d.number) ?? 9999 }));
+  }, [data, recencyMap]);
+
+  const chartData = useMemo(() => {
+    if (!enrichedData.length) return [];
+    return [...enrichedData]
       .sort((a, b) => b.currentStreak - a.currentStreak)
       .map((d) => ({ ...d, label: String(d.number).padStart(2, '0') }));
-  }, [data]);
+  }, [enrichedData]);
 
   const tableRows = useMemo(() => {
-    if (!data?.length) return [];
+    if (!enrichedData.length) return [];
     const column = sortColumn ?? 'currentStreak';
     const sign = sortColumn === null || sortDirection === 'desc' ? -1 : 1;
-    return [...data]
+    return [...enrichedData]
       .sort((a, b) => sign * (a[column] - b[column]))
       .map((d) => ({ ...d, label: String(d.number).padStart(2, '0') }));
-  }, [data, sortColumn, sortDirection]);
+  }, [enrichedData, sortColumn, sortDirection]);
 
   function handleSort(column: SortColumn) {
     if (sortColumn === column) {
@@ -106,7 +124,7 @@ export default function SequentialStreakChart({ data, loading }: Props) {
       </div>
     );
   }
-  if (!data?.length) return null;
+  if (!enrichedData.length) return null;
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -157,6 +175,14 @@ export default function SequentialStreakChart({ data, loading }: Props) {
             <tr className="bg-slate-800 text-white text-left">
               <th className="px-4 py-2 font-semibold text-left">Número</th>
               <SortableHeader
+                label="Ausência (dias)"
+                column="daysAbsent"
+                activeColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+                title="Dias desde o último sorteio em que este número foi sorteado"
+              />
+              <SortableHeader
                 label="Sequência Atual"
                 column="currentStreak"
                 activeColumn={sortColumn}
@@ -205,6 +231,9 @@ export default function SequentialStreakChart({ data, loading }: Props) {
                 }`}
               >
                 <td className="px-4 py-2 font-medium text-slate-700">{d.label}</td>
+                <td className="px-4 py-2 text-center font-semibold" style={{ color: daysAbsentColor(d.daysAbsent) }}>
+                  {d.daysAbsent}
+                </td>
                 <td className="px-4 py-2 text-center font-semibold" style={{ color: barColor(d.currentStreak) }}>
                   {d.currentStreak}
                 </td>
