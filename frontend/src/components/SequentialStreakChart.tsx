@@ -11,7 +11,7 @@ interface Props {
   loading: boolean;
 }
 
-type SortColumn = 'daysAbsent' | 'currentStreak' | 'maxStreak' | 'avgStreak' | 'medianStreak' | 'stdDevStreak';
+type SortColumn = 'drawsAbsent' | 'currentStreak' | 'maxStreak' | 'avgStreak' | 'medianStreak' | 'stdDevStreak';
 type SortDirection = 'asc' | 'desc';
 
 function barColor(currentStreak: number): string {
@@ -21,9 +21,9 @@ function barColor(currentStreak: number): string {
   return '#e74c3c';
 }
 
-function daysAbsentColor(daysAbsent: number): string {
-  if (daysAbsent <= 7)  return '#27ae60';
-  if (daysAbsent <= 14) return '#f39c12';
+function drawsAbsentColor(drawsAbsent: number): string {
+  if (drawsAbsent <= 7)  return '#27ae60';
+  if (drawsAbsent <= 14) return '#f39c12';
   return '#e74c3c';
 }
 
@@ -82,13 +82,13 @@ export default function SequentialStreakChart({ data, recency, loading }: Props)
 
   const recencyMap = useMemo(() => {
     const map = new Map<number, number>();
-    recency?.forEach((r) => map.set(r.number, r.daysAbsent));
+    recency?.forEach((r) => map.set(r.number, r.drawsAbsent));
     return map;
   }, [recency]);
 
   const enrichedData = useMemo(() => {
     if (!data?.length) return [];
-    return data.map((d) => ({ ...d, daysAbsent: recencyMap.get(d.number) ?? 9999 }));
+    return data.map((d) => ({ ...d, drawsAbsent: recencyMap.get(d.number) ?? 9999 }));
   }, [data, recencyMap]);
 
   const chartData = useMemo(() => {
@@ -175,12 +175,12 @@ export default function SequentialStreakChart({ data, recency, loading }: Props)
             <tr className="bg-slate-800 text-white text-left">
               <th className="px-4 py-2 font-semibold text-left">Número</th>
               <SortableHeader
-                label="Ausência (dias)"
-                column="daysAbsent"
+                label="Sorteios Ausente"
+                column="drawsAbsent"
                 activeColumn={sortColumn}
                 direction={sortDirection}
                 onSort={handleSort}
-                title="Dias desde o último sorteio em que este número foi sorteado"
+                title="Sorteios desde a última vez que este número foi sorteado"
               />
               <SortableHeader
                 label="Sequência Atual"
@@ -231,8 +231,8 @@ export default function SequentialStreakChart({ data, recency, loading }: Props)
                 }`}
               >
                 <td className="px-4 py-2 font-medium text-slate-700">{d.label}</td>
-                <td className="px-4 py-2 text-center font-semibold" style={{ color: daysAbsentColor(d.daysAbsent) }}>
-                  {d.daysAbsent}
+                <td className="px-4 py-2 text-center font-semibold" style={{ color: drawsAbsentColor(d.drawsAbsent) }}>
+                  {d.drawsAbsent}
                 </td>
                 <td className="px-4 py-2 text-center font-semibold" style={{ color: barColor(d.currentStreak) }}>
                   {d.currentStreak}
