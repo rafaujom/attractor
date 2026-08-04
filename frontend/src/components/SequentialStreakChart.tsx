@@ -22,8 +22,8 @@ function barColor(currentStreak: number): string {
 }
 
 function drawsAbsentColor(drawsAbsent: number): string {
-  if (drawsAbsent <= 7)  return '#27ae60';
-  if (drawsAbsent <= 14) return '#f39c12';
+  if (drawsAbsent <= 2) return '#27ae60';
+  if (drawsAbsent <= 5) return '#f39c12';
   return '#e74c3c';
 }
 

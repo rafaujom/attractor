@@ -10,8 +10,8 @@ interface Props {
 }
 
 function barColor(drawsAbsent: number): string {
-  if (drawsAbsent <= 7)  return '#27ae60';
-  if (drawsAbsent <= 14) return '#f39c12';
+  if (drawsAbsent <= 2) return '#27ae60';
+  if (drawsAbsent <= 5) return '#f39c12';
   return '#e74c3c';
 }
 
@@ -61,15 +61,15 @@ export default function RecencyChart({ data, loading }: Props) {
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#27ae60' }} />
-            ≤ 7 sorteios
+            ≤ 2 sorteios
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#f39c12' }} />
-            8–14 sorteios
+            3–5 sorteios
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#e74c3c' }} />
-            &gt; 14 sorteios
+            &gt; 5 sorteios
           </span>
         </div>
       </div>
