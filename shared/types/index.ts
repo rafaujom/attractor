@@ -74,6 +74,15 @@ export interface SequentialStreakEntry {
 
 export type SequentialStreakResponse = SequentialStreakEntry[];
 
+export interface PairEntry {
+  a: number;
+  b: number;
+  count: number;
+  pct: number; // % of total draws containing both a and b
+}
+
+export type PairsResponse = PairEntry[];
+
 // ── Tickets ──────────────────────────────────────────────────────────────────
 // A ticket is the player's guess for a single draw (keyed by concurso). The
 // match count and prize flag are scored against that draw's winning numbers.

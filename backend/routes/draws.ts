@@ -2,8 +2,9 @@ import express, { Request, Response } from 'express';
 import Draw from '../models/Draw.js';
 import { fetchLatest } from '../services/scraper.js';
 import { computeSequentialStreaks } from '../services/streaks.js';
+import { computePairCounts } from '../services/pairs.js';
 import { scorePendingTickets } from '../services/scoring.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse } from '../../shared/types/index.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -158,6 +159,17 @@ router.get('/streaks/sequential', async (_req: Request, res: Response) => {
       .sort((a, b) => b.currentStreak - a.currentStreak);
 
     res.json(streaks);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/pairs ────────────────────────────────────────────────────
+router.get('/pairs', async (_req: Request, res: Response) => {
+  try {
+    const draws = await Draw.find().select('numbers -_id');
+    const pairs: PairsResponse = computePairCounts(draws);
+    res.json(pairs);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
