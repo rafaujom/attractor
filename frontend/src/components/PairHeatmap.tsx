@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import type { PairEntry } from '@shared/types';
+import Tooltip from './Tooltip';
 
 interface Props {
   data: PairEntry[] | null;
@@ -29,10 +30,11 @@ export default function PairHeatmap({ data, loading }: Props) {
 
   const lookup = new Map(data.map((p) => [`${p.a}-${p.b}`, p]));
   const maxCount = Math.max(...data.map((p) => p.count));
+  const minCount = Math.min(...data.map((p) => p.count));
 
   const colorFor = (count: number) => {
     if (count === 0) return '#f8fafc';
-    const t = count / maxCount;
+    const t = maxCount === minCount ? 1 : (count - minCount) / (maxCount - minCount);
     // interpolate slate-100 -> blue-700
     const r = Math.round(238 + t * (29 - 238));
     const g = Math.round(242 + t * (78 - 242));
@@ -45,7 +47,9 @@ export default function PairHeatmap({ data, loading }: Props) {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
       <h2 className="text-base font-semibold text-slate-700 mb-4">
-        🔗 Pares Mais Frequentes
+        <Tooltip content="Baseado em uma amostra pequena (atualmente 99 sorteios) de um processo independente-aleatório — cada sorteio não depende do anterior. Os 'pares mais frequentes' descrevem a frequência histórica, não a probabilidade futura.">
+          🔗 Pares Mais Frequentes
+        </Tooltip>
       </h2>
 
       <div className="overflow-x-auto">

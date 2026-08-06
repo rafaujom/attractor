@@ -1,8 +1,9 @@
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine,
+  Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import type { RepeatRateResponse } from '@shared/types';
+import Tooltip from './Tooltip';
 
 interface Props {
   data: RepeatRateResponse | null;
@@ -31,7 +32,9 @@ export default function RepeatRateChart({ data, loading }: Props) {
     <div className="bg-white rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-slate-700">
-          🔁 Repetição em Relação ao Sorteio Anterior
+          <Tooltip content="Baseado em uma amostra pequena (atualmente 99 sorteios) de um processo independente-aleatório — cada sorteio não depende do anterior. O número típico de repetições descreve a frequência histórica, não a probabilidade futura.">
+            🔁 Repetição em Relação ao Sorteio Anterior
+          </Tooltip>
         </h2>
         <span className="text-sm text-slate-500">
           Média histórica: <strong className="text-slate-700">{data.average}</strong> números repetidos por sorteio
@@ -45,9 +48,9 @@ export default function RepeatRateChart({ data, loading }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="repeats" tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip />
+          <RechartsTooltip />
           <ReferenceLine x={Math.round(data.average)} stroke="#e74c3c" strokeDasharray="4 4" />
-          <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0] as [number, number, number, number]} />
+          <Bar dataKey="count" name="Sorteios" fill="#2563eb" radius={[4, 4, 0, 0] as [number, number, number, number]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
