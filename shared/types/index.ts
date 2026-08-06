@@ -83,6 +83,18 @@ export interface PairEntry {
 
 export type PairsResponse = PairEntry[];
 
+export interface RepeatRateEntry {
+  concurso: number;      // the later draw (N+1)
+  previousConcurso: number;
+  repeats: number;       // count of numbers shared with previous draw
+}
+
+export interface RepeatRateResponse {
+  entries: RepeatRateEntry[];
+  average: number;
+  distribution: Record<number, number>; // repeats(0-15) -> occurrence count
+}
+
 // ── Tickets ──────────────────────────────────────────────────────────────────
 // A ticket is the player's guess for a single draw (keyed by concurso). The
 // match count and prize flag are scored against that draw's winning numbers.

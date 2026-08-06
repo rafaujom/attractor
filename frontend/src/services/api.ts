@@ -6,6 +6,7 @@ import type {
   RecencyResponse,
   SequentialStreakResponse,
   PairsResponse,
+  RepeatRateResponse,
   Ticket,
   TicketInput,
 } from '@shared/types';
@@ -29,6 +30,9 @@ export const getSequentialStreaks = (): Promise<SequentialStreakResponse> =>
 
 export const getPairs = (): Promise<PairsResponse> =>
   api.get('/draws/pairs').then((r) => r.data as PairsResponse);
+
+export const getRepeatRate = (): Promise<RepeatRateResponse> =>
+  api.get('/draws/repeat-rate').then((r) => r.data as RepeatRateResponse);
 
 export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
   api
