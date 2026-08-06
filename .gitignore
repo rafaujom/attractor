@@ -15,3 +15,6 @@ docs
 
 # git worktrees
 .worktrees
+
+# subagent-driven-development workspace
+.superpowers
