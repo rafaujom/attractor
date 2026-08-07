@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { extractErrorMessage } from '../services/api';
+import TicketReview from './TicketReview';
 import type { Draw, Ticket, TicketInput, SequentialStreakEntry, SequentialStreakResponse } from '@shared/types';
 
 interface Props {
@@ -40,6 +41,7 @@ export default function TicketModal({
   const [description, setDescription] = useState(existingTicket?.description ?? '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'summary' | 'review'>('summary');
 
   const drawSet = new Set(draw?.numbers ?? []);
   const isReadOnly = phase === 'result';
@@ -156,6 +158,24 @@ export default function TicketModal({
           </button>
         </div>
 
+        {phase === 'result' && savedTicket && draw && (
+          <div className="flex border-b border-slate-100 px-6">
+            {(['summary', 'review'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
+                  activeTab === tab
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {tab === 'summary' ? 'Resumo' : 'Análise'}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="px-6 py-4 space-y-4">
           {saveError && (
             <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 border border-red-200">
@@ -163,79 +183,85 @@ export default function TicketModal({
             </div>
           )}
 
-          {/* Result summary */}
-          {phase === 'result' && savedTicket && (
-            <div className={`rounded-lg p-3 text-sm font-semibold text-center ${
-              savedTicket.hasPrize
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-slate-50 text-slate-600 border border-slate-200'
-            }`}>
-              {savedTicket.hasPrize
-                ? `Você acertou ${savedTicket.matches} números — 🏆 Premiado!`
-                : `Você acertou ${savedTicket.matches} números`}
-            </div>
-          )}
-
-          {/* Picker label */}
-          <p className="text-xs text-slate-500 font-medium">
-            {phase === 'pick'
-              ? `Selecione 15 números (${selected.size}/15 selecionados)`
-              : 'Seus números — 🟢 acerto · 🔴 erro'}
-          </p>
-
-          {/* 5×5 number grid */}
-          <div className="grid grid-cols-5 gap-2">
-            {Array.from({ length: 25 }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                onClick={() => toggleNumber(n)}
-                disabled={isReadOnly || (selected.size >= 15 && !selected.has(n))}
-                className={`rounded-full w-10 h-10 text-sm font-bold border-2 transition-colors mx-auto flex items-center justify-center ${getBallClass(n)}`}
-              >
-                {String(n).padStart(2, '0')}
-              </button>
-            ))}
-          </div>
-
-          {/* Ticket details */}
-          {phase === 'pick' ? (
-            <div>
-              <p className="text-xs text-slate-500 font-medium mb-1.5">Detalhes (opcional)</p>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                maxLength={200}
-                placeholder="Anotações sobre este jogo…"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-              />
-            </div>
+          {phase === 'result' && savedTicket && draw && activeTab === 'review' ? (
+            <TicketReview ticketId={savedTicket.id} />
           ) : (
-            savedTicket?.description && (
-              <div>
-                <p className="text-xs text-slate-500 font-medium mb-1.5">Detalhes</p>
-                <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 whitespace-pre-wrap">
-                  {savedTicket.description}
-                </p>
-              </div>
-            )
-          )}
+            <>
+              {/* Result summary */}
+              {phase === 'result' && savedTicket && (
+                <div className={`rounded-lg p-3 text-sm font-semibold text-center ${
+                  savedTicket.hasPrize
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-slate-50 text-slate-600 border border-slate-200'
+                }`}>
+                  {savedTicket.hasPrize
+                    ? `Você acertou ${savedTicket.matches} números — 🏆 Premiado!`
+                    : `Você acertou ${savedTicket.matches} números`}
+                </div>
+              )}
 
-          {/* Draw result reference */}
-          {draw && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium mb-1.5">Resultado do Concurso</p>
-              <div className="flex flex-wrap gap-1.5">
-                {draw.numbers.map((n) => (
-                  <span
+              {/* Picker label */}
+              <p className="text-xs text-slate-500 font-medium">
+                {phase === 'pick'
+                  ? `Selecione 15 números (${selected.size}/15 selecionados)`
+                  : 'Seus números — 🟢 acerto · 🔴 erro'}
+              </p>
+
+              {/* 5×5 number grid */}
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: 25 }, (_, i) => i + 1).map((n) => (
+                  <button
                     key={n}
-                    className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold"
+                    onClick={() => toggleNumber(n)}
+                    disabled={isReadOnly || (selected.size >= 15 && !selected.has(n))}
+                    className={`rounded-full w-10 h-10 text-sm font-bold border-2 transition-colors mx-auto flex items-center justify-center ${getBallClass(n)}`}
                   >
                     {String(n).padStart(2, '0')}
-                  </span>
+                  </button>
                 ))}
               </div>
-            </div>
+
+              {/* Ticket details */}
+              {phase === 'pick' ? (
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1.5">Detalhes (opcional)</p>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    maxLength={200}
+                    placeholder="Anotações sobre este jogo…"
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                  />
+                </div>
+              ) : (
+                savedTicket?.description && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium mb-1.5">Detalhes</p>
+                    <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                      {savedTicket.description}
+                    </p>
+                  </div>
+                )
+              )}
+
+              {/* Draw result reference */}
+              {draw && (
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1.5">Resultado do Concurso</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {draw.numbers.map((n) => (
+                      <span
+                        key={n}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold"
+                      >
+                        {String(n).padStart(2, '0')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
