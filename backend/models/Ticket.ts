@@ -1,12 +1,14 @@
 import mongoose from 'mongoose';
 
 export interface ITicketDocument extends mongoose.Document {
+  _id: mongoose.Types.ObjectId;
   concurso: number;
   matches: number | null;
   hasPrize: boolean | null;
   numbers: number[];
   label?: string;
   description?: string;
+  snapshotId?: mongoose.Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,9 @@ const ticketSchema = new mongoose.Schema<ITicketDocument>(
     },
     label: { type: String, trim: true },
     description: { type: String, trim: true },
+    // Frozen stats context captured the moment this ticket was first saved
+    // (see backend/services/snapshotService.ts). Set once and never changed.
+    snapshotId: { type: mongoose.Schema.Types.ObjectId, ref: 'Snapshot', default: null },
   },
   { timestamps: true }
 );

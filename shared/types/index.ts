@@ -99,6 +99,7 @@ export interface RepeatRateResponse {
 // A ticket is the player's guess for a single draw (keyed by concurso). The
 // match count and prize flag are scored against that draw's winning numbers.
 export interface Ticket {
+  id: string;
   concurso: number;
   numbers: number[];
   matches: number | null;
@@ -106,6 +107,7 @@ export interface Ticket {
   label?: string;
   description?: string;
   createdAt?: string;
+  snapshotId?: string;
 }
 
 // Payload the client sends to save/update a ticket for a draw. matches/hasPrize
@@ -115,4 +117,63 @@ export interface TicketInput {
   numbers: number[];
   label?: string;
   description?: string;
+}
+
+// ── Ticket snapshot ─────────────────────────────────────────────────────────
+// Frozen copy of every stats indicator as it stood the moment a ticket was
+// first saved. Immutable — never recomputed after creation, even as new draws
+// come in, so a later review reflects exactly what the player saw at the time.
+export interface GravityStatsSnapshot {
+  total: number;
+  categories: Record<GravityCategory, number>;
+}
+
+export interface AbsenceStreakEntry {
+  number: number;
+  daysAbsent: number;
+}
+
+export interface NumberRecencySnapshotEntry {
+  number: number;
+  drawsAbsent: number;
+}
+
+export interface Snapshot {
+  id: string;
+  ticketId: string;
+  targetConcurso: number;
+  pickedNumbers: number[];
+  createdAt: string;
+  gravityStats: GravityStatsSnapshot;
+  monthlyBreakdown: MonthlyEntry[];
+  absenceStreaks: AbsenceStreakEntry[];
+  sequentialStreaks: SequentialStreakEntry[];
+  numberRecency: NumberRecencySnapshotEntry[];
+}
+
+// Per-number outcome analysis for the post-draw review (Panel 3): was this
+// pick statistically "justified" by the snapshot data, and did it hit?
+export interface PickVerdict {
+  number: number;
+  hit: boolean;
+  daysAbsentAtEntry: number;
+  drawsAbsentAtEntry: number;
+  currentStreakAtEntry: number;
+  isColdPick: boolean;
+  isHotPick: boolean;
+  verdict: string;
+}
+
+export interface TicketReview {
+  ticket: Ticket;
+  snapshot: Snapshot;
+  draw: Draw | null;
+  matches: number | null;
+  hasPrize: boolean | null;
+  picks: PickVerdict[];
+  summary: {
+    coldPicksCount: number;
+    coldHitsCount: number;
+    summaryText: string;
+  };
 }

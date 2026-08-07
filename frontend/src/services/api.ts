@@ -9,6 +9,8 @@ import type {
   RepeatRateResponse,
   Ticket,
   TicketInput,
+  Snapshot,
+  TicketReview,
 } from '@shared/types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -55,3 +57,9 @@ export const deleteTicket = (concurso: number): Promise<void> =>
 
 export const saveTicket = (ticket: TicketInput): Promise<Ticket> =>
   api.post('/tickets', ticket).then((r) => r.data as Ticket);
+
+export const getTicketSnapshot = (ticketId: string): Promise<Snapshot> =>
+  api.get(`/tickets/${ticketId}/snapshot`).then((r) => r.data as Snapshot);
+
+export const getTicketReview = (ticketId: string): Promise<TicketReview> =>
+  api.get(`/tickets/${ticketId}/review`).then((r) => r.data as TicketReview);
