@@ -1,19 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getStats, getRecency, getSequentialStreaks } from './services/api';
-import type { StatsResponse, RecencyResponse, SequentialStreakResponse } from '@shared/types';
+import { getStats, getRecency, getSequentialStreaks, getPairs, getRepeatRate } from './services/api';
+import type { StatsResponse, RecencyResponse, SequentialStreakResponse, PairsResponse, RepeatRateResponse } from '@shared/types';
 import Header                from './components/Header';
 import StatsCards            from './components/StatsCards';
 import GravityPieChart       from './components/GravityPieChart';
 import MonthlyBarChart       from './components/MonthlyBarChart';
 import MonthlyBreakdown      from './components/MonthlyBreakdown';
+import RepeatRateChart       from './components/RepeatRateChart';
 import RecencyChart          from './components/RecencyChart';
 import SequentialStreakChart from './components/SequentialStreakChart';
+import PairHeatmap           from './components/PairHeatmap';
 import ResultsTable          from './components/ResultsTable';
 
 export default function App() {
   const [stats,      setStats]      = useState<StatsResponse | null>(null);
   const [recency,    setRecency]    = useState<RecencyResponse | null>(null);
   const [streaks,    setStreaks]    = useState<SequentialStreakResponse | null>(null);
+  const [pairs,      setPairs]      = useState<PairsResponse | null>(null);
+  const [repeatRate, setRepeatRate] = useState<RepeatRateResponse | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -22,14 +26,18 @@ export default function App() {
     try {
       setLoading(true);
       setError(null);
-      const [statsData, recencyData, streaksData] = await Promise.all([
+      const [statsData, recencyData, streaksData, pairsData, repeatRateData] = await Promise.all([
         getStats(),
         getRecency(),
         getSequentialStreaks(),
+        getPairs(),
+        getRepeatRate(),
       ]);
       setStats(statsData);
       setRecency(recencyData);
       setStreaks(streaksData);
+      setPairs(pairsData);
+      setRepeatRate(repeatRateData);
     } catch {
       setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     } finally {
@@ -64,11 +72,15 @@ export default function App() {
 
         <MonthlyBreakdown stats={stats} loading={loading} />
 
+        <RepeatRateChart data={repeatRate} loading={loading} />
+
         <RecencyChart data={recency} loading={loading} />
 
         <SequentialStreakChart data={streaks} loading={loading} />
 
-        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} />
+        <PairHeatmap data={pairs} loading={loading} />
+
+        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} streaks={streaks} />
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200">

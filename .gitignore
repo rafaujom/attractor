@@ -12,3 +12,12 @@ dist
 
 # superpower docs
 docs
+
+# git worktrees
+.worktrees
+
+# subagent-driven-development workspace
+.superpowers
+
+# implementation plan scratch files
+PLAN_pairs_repeat_rate.md

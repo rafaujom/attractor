@@ -68,9 +68,32 @@ export interface SequentialStreakEntry {
   currentStreak: number;
   maxStreak: number;
   avgStreak: number;
+  medianStreak: number;
+  stdDevStreak: number;
 }
 
 export type SequentialStreakResponse = SequentialStreakEntry[];
+
+export interface PairEntry {
+  a: number;
+  b: number;
+  count: number;
+  pct: number; // % of total draws containing both a and b
+}
+
+export type PairsResponse = PairEntry[];
+
+export interface RepeatRateEntry {
+  concurso: number;      // the later draw (N+1)
+  previousConcurso: number;
+  repeats: number;       // count of numbers shared with previous draw
+}
+
+export interface RepeatRateResponse {
+  entries: RepeatRateEntry[];
+  average: number;
+  distribution: Record<number, number>; // repeats(0-15) -> occurrence count
+}
 
 // ── Tickets ──────────────────────────────────────────────────────────────────
 // A ticket is the player's guess for a single draw (keyed by concurso). The
