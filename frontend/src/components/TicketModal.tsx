@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { extractErrorMessage } from '../services/api';
+import { useDraggableResizable } from '../hooks/useDraggableResizable';
 import TicketReview from './TicketReview';
 import type { Draw, Ticket, TicketInput, SequentialStreakEntry, SequentialStreakResponse } from '@shared/types';
 
@@ -121,14 +122,29 @@ export default function TicketModal({
     return 'bg-slate-100 text-slate-400 border-slate-200 cursor-default';
   }
 
+  const { style, onHeaderPointerDown, onResizeHandlePointerDown } = useDraggableResizable({
+    defaultWidth: 448,
+    defaultHeight: 640,
+    minWidth: 320,
+    minHeight: 280,
+    margin: 16,
+  });
+
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 z-50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+      <div
+        style={style}
+        className="bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden relative"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+        <div
+          onPointerDown={onHeaderPointerDown}
+          style={{ touchAction: 'none' }}
+          className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100 shrink-0 cursor-move"
+        >
           <div>
             {concursoEditable ? (
               <div className="flex items-center gap-2">
@@ -159,7 +175,7 @@ export default function TicketModal({
         </div>
 
         {phase === 'result' && savedTicket && draw && (
-          <div className="flex border-b border-slate-100 px-6">
+          <div className="flex border-b border-slate-100 px-6 shrink-0">
             {(['summary', 'review'] as const).map((tab) => (
               <button
                 key={tab}
@@ -176,7 +192,7 @@ export default function TicketModal({
           </div>
         )}
 
-        <div className="px-6 py-4 space-y-4">
+        <div className="px-6 py-4 space-y-4 flex-1 overflow-y-auto">
           {saveError && (
             <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 border border-red-200">
               ⚠️ {saveError}
@@ -266,7 +282,7 @@ export default function TicketModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 pb-5 flex gap-3 justify-end border-t border-slate-100 pt-4">
+        <div className="px-6 pb-5 flex gap-3 justify-end border-t border-slate-100 pt-4 shrink-0">
           {phase === 'pick' ? (
             <>
               <button
@@ -291,6 +307,24 @@ export default function TicketModal({
               Fechar
             </button>
           )}
+        </div>
+
+        {/* Resize handle */}
+        <div
+          onPointerDown={onResizeHandlePointerDown}
+          style={{ touchAction: 'none' }}
+          className="absolute bottom-1 right-1 w-4 h-4 cursor-nwse-resize flex items-end justify-end"
+        >
+          <svg
+            viewBox="0 0 12 12"
+            className="w-full h-full text-slate-300"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+          >
+            <path d="M10 10L4 10M10 10L10 4M10 7L7 10" />
+          </svg>
         </div>
       </div>
     </div>
