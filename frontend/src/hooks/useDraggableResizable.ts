@@ -97,9 +97,11 @@ export function useDraggableResizable({
     function handleUp() {
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
     }
     window.addEventListener('pointermove', handleMove);
     window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
   }, []);
 
   const onResizeHandlePointerDown = useCallback(
@@ -126,9 +128,11 @@ export function useDraggableResizable({
       function handleUp() {
         window.removeEventListener('pointermove', handleMove);
         window.removeEventListener('pointerup', handleUp);
+        window.removeEventListener('pointercancel', handleUp);
       }
       window.addEventListener('pointermove', handleMove);
       window.addEventListener('pointerup', handleUp);
+      window.addEventListener('pointercancel', handleUp);
     },
     [minWidth, minHeight, margin]
   );
