@@ -77,6 +77,7 @@ export function useDraggableResizable({
   }, [margin]);
 
   const onHeaderPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || !e.isPrimary) return;
     const target = e.target as HTMLElement;
     if (target.closest('input, button')) return;
     e.preventDefault();
@@ -106,6 +107,7 @@ export function useDraggableResizable({
 
   const onResizeHandlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
+      if (e.button !== 0 || !e.isPrimary) return;
       e.preventDefault();
 
       const pointerId = e.pointerId;
