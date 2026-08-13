@@ -114,36 +114,32 @@ router.get('/stats', async (_req: Request, res: Response) => {
 // ── GET /api/draws/recency ──────────────────────────────────────────────────
 router.get('/recency', async (_req: Request, res: Response) => {
   try {
-    interface RecencyAggRow { _id: number; lastDate: Date }
+    interface RecencyAggRow { _id: number; lastDate: Date; lastConcurso: number }
 
-    const rows = await Draw.aggregate<RecencyAggRow>([
-      { $unwind: '$numbers' },
-      { $group: { _id: '$numbers', lastDate: { $max: '$date' } } },
-      { $sort: { _id: 1 } },
+    const [rows, latestDraw] = await Promise.all([
+      Draw.aggregate<RecencyAggRow>([
+        { $unwind: '$numbers' },
+        { $group: { _id: '$numbers', lastDate: { $max: '$date' }, lastConcurso: { $max: '$concurso' } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Draw.findOne().sort({ concurso: -1 }).select('concurso -_id'),
     ]);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const latestConcurso = latestDraw?.concurso ?? 0;
 
-    const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-    const recency: RecencyEntry[] = rows.map((r) => {
-      const last = new Date(r.lastDate);
-      last.setHours(0, 0, 0, 0);
-      return {
-        number:     r._id,
-        lastDate:   r.lastDate.toISOString().slice(0, 10),
-        daysAbsent: Math.round((today.getTime() - last.getTime()) / MS_PER_DAY),
-      };
-    });
+    const recency: RecencyEntry[] = rows.map((r) => ({
+      number:      r._id,
+      lastDate:    r.lastDate.toISOString().slice(0, 10),
+      drawsAbsent: latestConcurso - r.lastConcurso,
+    }));
 
     // Fill any missing numbers (1-25) that have never appeared (edge case)
     const seen = new Set(recency.map((r) => r.number));
     for (let n = 1; n <= 25; n++) {
-      if (!seen.has(n)) recency.push({ number: n, lastDate: '', daysAbsent: 9999 });
+      if (!seen.has(n)) recency.push({ number: n, lastDate: '', drawsAbsent: 9999 });
     }
 
-    recency.sort((a, b) => b.daysAbsent - a.daysAbsent);
+    recency.sort((a, b) => b.drawsAbsent - a.drawsAbsent);
 
     res.json(recency);
   } catch (err) {

@@ -58,7 +58,7 @@ export interface FetchResponse {
 export interface RecencyEntry {
   number: number;
   lastDate: string;
-  daysAbsent: number;
+  drawsAbsent: number;
 }
 
 export type RecencyResponse = RecencyEntry[];
