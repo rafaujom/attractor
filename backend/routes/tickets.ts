@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import express, { Request, Response } from 'express';
 import Ticket, { ITicketDocument } from '../models/Ticket.js';
-import Draw from '../models/Draw.js';
+import Draw, { IDrawDocument } from '../models/Draw.js';
 import Snapshot, { ISnapshotDocument } from '../models/Snapshot.js';
 import { scoreTicket } from '../services/scoring.js';
 import { captureSnapshot } from '../services/snapshotService.js';
@@ -225,6 +225,10 @@ router.get('/:id/snapshot', async (req: Request, res: Response) => {
   }
 });
 
+function serializeDrawSummary(d: IDrawDocument) {
+  return { concurso: d.concurso, date: d.date.toISOString(), numbers: d.numbers, min: d.min, max: d.max, category: d.category };
+}
+
 // ── GET /api/tickets/:id/review ───────────────────────────────────────────────
 // Combines the snapshot, the draw result, and a per-number verdict (was the
 // pick statistically justified by the data available at entry time?) into a
@@ -252,15 +256,15 @@ router.get('/:id/review', async (req: Request, res: Response) => {
     }
 
     const draw = await Draw.findOne({ concurso: ticket.concurso });
+    const previousDraw = await Draw.findOne({ concurso: ticket.concurso - 1 });
     const picks = buildPickVerdicts(snapshot, draw);
     const summary = summarizeVerdicts(picks);
 
     res.json({
       ticket: serialize(ticket),
       snapshot: serializeSnapshot(snapshot),
-      draw: draw
-        ? { concurso: draw.concurso, date: draw.date.toISOString(), numbers: draw.numbers, min: draw.min, max: draw.max, category: draw.category }
-        : null,
+      draw: draw ? serializeDrawSummary(draw) : null,
+      previousDraw: previousDraw ? serializeDrawSummary(previousDraw) : null,
       matches: ticket.matches,
       hasPrize: ticket.hasPrize,
       picks,

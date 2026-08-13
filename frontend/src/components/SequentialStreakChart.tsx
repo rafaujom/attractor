@@ -4,6 +4,8 @@ import {
   Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import type { SequentialStreakEntry, RecencyResponse } from '@shared/types';
+import { barColor, drawsAbsentColor } from '../utils/streakColors';
+import SortableHeader, { type SortDirection } from './common/SortableHeader';
 
 interface Props {
   data: SequentialStreakEntry[] | null;
@@ -12,20 +14,6 @@ interface Props {
 }
 
 type SortColumn = 'drawsAbsent' | 'currentStreak' | 'maxStreak' | 'avgStreak' | 'medianStreak' | 'stdDevStreak';
-type SortDirection = 'asc' | 'desc';
-
-function barColor(currentStreak: number): string {
-  if (currentStreak === 0) return '#cbd5e1';
-  if (currentStreak <= 2)  return '#27ae60';
-  if (currentStreak <= 4)  return '#f39c12';
-  return '#e74c3c';
-}
-
-function drawsAbsentColor(drawsAbsent: number): string {
-  if (drawsAbsent <= 2) return '#27ae60';
-  if (drawsAbsent <= 5) return '#f39c12';
-  return '#e74c3c';
-}
 
 interface TooltipPayload {
   value: number;
@@ -46,33 +34,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
       <p className="text-slate-500">Mediana: {entry.medianStreak.toFixed(1)}</p>
       <p className="text-slate-500">Desvio Padrão: {entry.stdDevStreak.toFixed(1)}</p>
     </div>
-  );
-}
-
-function SortableHeader({
-  label, column, activeColumn, direction, onSort, title,
-}: {
-  label: string;
-  column: SortColumn;
-  activeColumn: SortColumn | null;
-  direction: SortDirection;
-  onSort: (column: SortColumn) => void;
-  title?: string;
-}) {
-  const isActive = activeColumn === column;
-  return (
-    <th
-      onClick={() => onSort(column)}
-      title={title}
-      className="px-4 py-2 font-semibold text-center cursor-pointer select-none hover:bg-slate-700"
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        <span className={`text-[10px] ${isActive ? 'opacity-100' : 'opacity-30'}`}>
-          {isActive && direction === 'asc' ? '▲' : '▼'}
-        </span>
-      </span>
-    </th>
   );
 }
 

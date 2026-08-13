@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getTicketReview, extractErrorMessage } from '../services/api';
 import type { TicketReview as TicketReviewType } from '@shared/types';
+import SnapshotStatsTable from './SnapshotStatsTable';
 
 interface Props {
   ticketId: string;
@@ -38,10 +39,11 @@ export default function TicketReview({ ticketId }: Props) {
   }
 
   const drawnSet = new Set(data.draw?.numbers ?? []);
-  const recencyMap = new Map(data.snapshot.numberRecency.map((e) => [e.number, e.drawsAbsent]));
-  const streakMap = new Map(data.snapshot.sequentialStreaks.map((e) => [e.number, e.currentStreak]));
   const verdictMap = new Map(data.picks.map((p) => [p.number, p]));
   const { categories } = data.snapshot.gravityStats;
+  const repeatedFromPrevious = data.previousDraw
+    ? data.snapshot.pickedNumbers.filter((n) => data.previousDraw!.numbers.includes(n))
+    : [];
 
   return (
     <div className="space-y-4">
@@ -75,17 +77,11 @@ export default function TicketReview({ ticketId }: Props) {
             {categories['small-gravity']} eventos small-gravity · {categories['mid-gravity']} mid-gravity ·{' '}
             {categories['high-gravity']} high-gravity até então
           </p>
-          <ul className="text-xs text-slate-600 font-mono space-y-0.5">
-            {data.snapshot.pickedNumbers.map((n) => {
-              const streak = streakMap.get(n) ?? 0;
-              return (
-                <li key={n}>
-                  {pad(n)} — {recencyMap.get(n) ?? 0} sorteios ausente na entrada
-                  {streak >= 2 ? ` · sequência ativa de ${streak}` : ''}
-                </li>
-              );
-            })}
-          </ul>
+          <SnapshotStatsTable
+            snapshot={data.snapshot}
+            pickedNumbers={data.snapshot.pickedNumbers}
+            drawnSet={drawnSet}
+          />
         </div>
       </section>
 
@@ -106,6 +102,36 @@ export default function TicketReview({ ticketId }: Props) {
           <p className="text-xs font-semibold text-slate-700 pt-2 border-t border-slate-100">
             {data.summary.summaryText}
           </p>
+        </div>
+      </section>
+
+      {/* Panel 4 — Repetition from previous result */}
+      <section>
+        <p className="text-xs font-semibold text-slate-500 mb-1.5">4 · Repetição do Resultado Anterior</p>
+        <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+          {!data.previousDraw ? (
+            <p className="text-xs text-slate-400 text-center py-1">Sem resultado anterior disponível.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500">
+                {repeatedFromPrevious.length === 0
+                  ? `Nenhum número repetido do concurso ${data.previousDraw.concurso}.`
+                  : `${repeatedFromPrevious.length} número(s) repetido(s) do concurso ${data.previousDraw.concurso}.`}
+              </p>
+              {repeatedFromPrevious.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                  {repeatedFromPrevious.map((n) => (
+                    <span
+                      key={n}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-amber-500 text-white"
+                    >
+                      {pad(n)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </section>
     </div>
