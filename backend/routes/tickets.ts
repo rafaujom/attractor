@@ -1,13 +1,18 @@
+import mongoose from 'mongoose';
 import express, { Request, Response } from 'express';
 import Ticket, { ITicketDocument } from '../models/Ticket.js';
 import Draw from '../models/Draw.js';
+import Snapshot, { ISnapshotDocument } from '../models/Snapshot.js';
 import { scoreTicket } from '../services/scoring.js';
-import type { Ticket as TicketType } from '../../shared/types/index.js';
+import { captureSnapshot } from '../services/snapshotService.js';
+import { buildPickVerdicts, summarizeVerdicts } from '../services/reviewService.js';
+import type { Ticket as TicketType, Snapshot as SnapshotType } from '../../shared/types/index.js';
 
 const router = express.Router();
 
 function serialize(t: ITicketDocument): TicketType {
   return {
+    id:        t._id.toString(),
     concurso:  t.concurso,
     numbers:   t.numbers,
     matches:   t.matches,
@@ -15,6 +20,22 @@ function serialize(t: ITicketDocument): TicketType {
     label:     t.label,
     description: t.description,
     createdAt: t.createdAt?.toISOString(),
+    snapshotId: t.snapshotId ? t.snapshotId.toString() : undefined,
+  };
+}
+
+function serializeSnapshot(s: ISnapshotDocument): SnapshotType {
+  return {
+    id:             s._id.toString(),
+    ticketId:       s.ticketId.toString(),
+    targetConcurso: s.targetConcurso,
+    pickedNumbers:  s.pickedNumbers,
+    createdAt:      s.createdAt.toISOString(),
+    gravityStats:      s.gravityStats,
+    monthlyBreakdown:  s.monthlyBreakdown,
+    absenceStreaks:    s.absenceStreaks,
+    sequentialStreaks: s.sequentialStreaks,
+    numberRecency:     s.numberRecency,
   };
 }
 
@@ -105,21 +126,44 @@ router.post('/', async (req: Request, res: Response) => {
       // concurso is in the future: save as pending, scored later by POST /api/draws/fetch
     }
 
-    const ticket = await Ticket.findOneAndUpdate(
-      { concurso: concursoNum },
-      {
-        concurso: concursoNum,
-        numbers: nums,
-        matches,
-        hasPrize,
-        label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
-        description:
-          typeof description === 'string' && description.trim() ? description.trim() : undefined,
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    const session = await mongoose.startSession();
+    let savedTicket: ITicketDocument;
+    try {
+      savedTicket = await session.withTransaction(async () => {
+        const ticket = await Ticket.findOneAndUpdate(
+          { concurso: concursoNum },
+          {
+            concurso: concursoNum,
+            numbers: nums,
+            matches,
+            hasPrize,
+            label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
+            description:
+              typeof description === 'string' && description.trim() ? description.trim() : undefined,
+          },
+          { new: true, upsert: true, setDefaultsOnInsert: true, session }
+        );
 
-    res.status(201).json(serialize(ticket));
+        // Snapshot is captured once, the moment the ticket is first saved, and
+        // is never recomputed on later edits — it must reflect what the stats
+        // looked like at entry time. If this fails, the whole write rolls back.
+        if (!ticket.snapshotId) {
+          const snapshotData = await captureSnapshot(session);
+          const [snapshot] = await Snapshot.create(
+            [{ ticketId: ticket._id, targetConcurso: concursoNum, pickedNumbers: nums, ...snapshotData }],
+            { session }
+          );
+          ticket.snapshotId = snapshot._id;
+          await ticket.save({ session });
+        }
+
+        return ticket;
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    res.status(201).json(serialize(savedTicket));
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -148,7 +192,80 @@ router.delete('/:concurso', async (req: Request, res: Response) => {
     }
 
     await Ticket.deleteOne({ concurso });
+    if (ticket.snapshotId) await Snapshot.deleteOne({ _id: ticket.snapshotId });
     res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/tickets/:id/snapshot ─────────────────────────────────────────────
+// Returns the frozen stats context captured when this ticket was first saved.
+router.get('/:id/snapshot', async (req: Request, res: Response) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found.' });
+      return;
+    }
+    if (!ticket.snapshotId) {
+      res.status(404).json({ error: 'No snapshot was captured for this ticket.' });
+      return;
+    }
+
+    const snapshot = await Snapshot.findById(ticket.snapshotId);
+    if (!snapshot) {
+      res.status(404).json({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    res.json(serializeSnapshot(snapshot));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/tickets/:id/review ───────────────────────────────────────────────
+// Combines the snapshot, the draw result, and a per-number verdict (was the
+// pick statistically justified by the data available at entry time?) into a
+// single payload for the My Ticket modal's post-draw review tab.
+router.get('/:id/review', async (req: Request, res: Response) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found.' });
+      return;
+    }
+    if (!ticket.snapshotId) {
+      res.status(404).json({ error: 'No snapshot was captured for this ticket.' });
+      return;
+    }
+    if (ticket.matches === null) {
+      res.status(400).json({ error: 'Draw result is not available yet for this ticket.' });
+      return;
+    }
+
+    const snapshot = await Snapshot.findById(ticket.snapshotId);
+    if (!snapshot) {
+      res.status(404).json({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    const draw = await Draw.findOne({ concurso: ticket.concurso });
+    const picks = buildPickVerdicts(snapshot, draw);
+    const summary = summarizeVerdicts(picks);
+
+    res.json({
+      ticket: serialize(ticket),
+      snapshot: serializeSnapshot(snapshot),
+      draw: draw
+        ? { concurso: draw.concurso, date: draw.date.toISOString(), numbers: draw.numbers, min: draw.min, max: draw.max, category: draw.category }
+        : null,
+      matches: ticket.matches,
+      hasPrize: ticket.hasPrize,
+      picks,
+      summary,
+    });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
