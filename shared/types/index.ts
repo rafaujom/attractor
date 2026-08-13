@@ -58,7 +58,7 @@ export interface FetchResponse {
 export interface RecencyEntry {
   number: number;
   lastDate: string;
-  daysAbsent: number;
+  drawsAbsent: number;
 }
 
 export type RecencyResponse = RecencyEntry[];
@@ -168,6 +168,7 @@ export interface TicketReview {
   ticket: Ticket;
   snapshot: Snapshot;
   draw: Draw | null;
+  previousDraw: Draw | null;
   matches: number | null;
   hasPrize: boolean | null;
   picks: PickVerdict[];

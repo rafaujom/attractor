@@ -76,7 +76,7 @@ export default function App() {
 
         <RecencyChart data={recency} loading={loading} />
 
-        <SequentialStreakChart data={streaks} loading={loading} />
+        <SequentialStreakChart data={streaks} recency={recency} loading={loading} />
 
         <PairHeatmap data={pairs} loading={loading} />
 

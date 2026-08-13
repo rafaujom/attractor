@@ -9,9 +9,9 @@ interface Props {
   loading: boolean;
 }
 
-function barColor(daysAbsent: number): string {
-  if (daysAbsent <= 7)  return '#27ae60';
-  if (daysAbsent <= 14) return '#f39c12';
+function barColor(drawsAbsent: number): string {
+  if (drawsAbsent <= 2) return '#27ae60';
+  if (drawsAbsent <= 5) return '#f39c12';
   return '#e74c3c';
 }
 
@@ -29,8 +29,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
       <p className="text-slate-500">
         Último sorteio: {entry.lastDate ? new Date(entry.lastDate + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
       </p>
-      <p className="font-medium" style={{ color: barColor(entry.daysAbsent) }}>
-        {entry.daysAbsent} dias ausente
+      <p className="font-medium" style={{ color: barColor(entry.drawsAbsent) }}>
+        {entry.drawsAbsent} sorteios ausente
       </p>
     </div>
   );
@@ -56,20 +56,20 @@ export default function RecencyChart({ data, loading }: Props) {
     <div className="bg-white rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-slate-700">
-          🧊 Recência dos Números (dias desde último sorteio)
+          🧊 Recência dos Números (sorteios sem sair)
         </h2>
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#27ae60' }} />
-            ≤ 7 dias
+            ≤ 2 sorteios
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#f39c12' }} />
-            8–14 dias
+            3–5 sorteios
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#e74c3c' }} />
-            &gt; 14 dias
+            &gt; 5 sorteios
           </span>
         </div>
       </div>
@@ -83,9 +83,9 @@ export default function RecencyChart({ data, loading }: Props) {
           <XAxis type="number" tick={{ fontSize: 11 }} />
           <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={28} />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="daysAbsent" radius={[0, 4, 4, 0] as [number, number, number, number]}>
+          <Bar dataKey="drawsAbsent" radius={[0, 4, 4, 0] as [number, number, number, number]}>
             {chartData.map((entry, index) => (
-              <Cell key={index} fill={barColor(entry.daysAbsent)} />
+              <Cell key={index} fill={barColor(entry.drawsAbsent)} />
             ))}
           </Bar>
         </BarChart>
