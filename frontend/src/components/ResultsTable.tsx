@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDraws, getTickets, getPendingTickets, saveTicket, deleteTicket, extractErrorMessage } from '../services/api';
-import type { DrawsResponse, GravityCategory, Draw, Ticket, TicketInput, SequentialStreakResponse } from '@shared/types';
+import type { DrawsResponse, GravityCategory, Draw, Ticket, TicketInput } from '@shared/types';
 import TicketModal from './TicketModal';
 
 interface Props {
   refreshKey?: number;
   latestConcurso?: number;
-  streaks?: SequentialStreakResponse | null;
 }
 
 type ModalTarget =
@@ -30,7 +29,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-export default function ResultsTable({ refreshKey, latestConcurso, streaks }: Props) {
+export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
   const [data,           setData]           = useState<DrawsResponse | null>(null);
   const [loading,        setLoading]        = useState(true);
   const [page,           setPage]           = useState(1);
@@ -322,7 +321,6 @@ export default function ResultsTable({ refreshKey, latestConcurso, streaks }: Pr
           concurso={modalTarget.draw.concurso}
           concursoEditable={false}
           existingTicket={tickets[modalTarget.draw.concurso] ?? null}
-          streaks={streaks}
           onSave={handleSave}
           onClose={() => setModalTarget(null)}
         />
@@ -333,7 +331,6 @@ export default function ResultsTable({ refreshKey, latestConcurso, streaks }: Pr
           concurso={modalTarget.ticket.concurso}
           concursoEditable={false}
           existingTicket={modalTarget.ticket}
-          streaks={streaks}
           onSave={handleSave}
           onClose={() => setModalTarget(null)}
         />
@@ -344,7 +341,6 @@ export default function ResultsTable({ refreshKey, latestConcurso, streaks }: Pr
           concurso={(latestConcurso ?? data?.draws?.[0]?.concurso ?? 0) + 1}
           concursoEditable={true}
           existingTicket={null}
-          streaks={streaks}
           onSave={handleSave}
           onClose={() => setModalTarget(null)}
         />
