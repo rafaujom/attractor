@@ -6,6 +6,7 @@ import TicketModal from './TicketModal';
 interface Props {
   refreshKey?: number;
   latestConcurso?: number;
+  avgSum?: number;
 }
 
 type ModalTarget =
@@ -29,7 +30,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
+export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Props) {
   const [data,           setData]           = useState<DrawsResponse | null>(null);
   const [loading,        setLoading]        = useState(true);
   const [page,           setPage]           = useState(1);
@@ -323,6 +324,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
           existingTicket={tickets[modalTarget.draw.concurso] ?? null}
           onSave={handleSave}
           onClose={() => setModalTarget(null)}
+          avgSum={avgSum}
         />
       )}
       {modalTarget?.kind === 'pending-edit' && (
@@ -333,6 +335,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
           existingTicket={modalTarget.ticket}
           onSave={handleSave}
           onClose={() => setModalTarget(null)}
+          avgSum={avgSum}
         />
       )}
       {modalTarget?.kind === 'pending-new' && (
@@ -343,6 +346,7 @@ export default function ResultsTable({ refreshKey, latestConcurso }: Props) {
           existingTicket={null}
           onSave={handleSave}
           onClose={() => setModalTarget(null)}
+          avgSum={avgSum}
         />
       )}
     </div>

@@ -26,6 +26,7 @@ export interface StatsResponse {
   categories: Record<GravityCategory, number>;
   monthly: MonthlyEntry[];
   latestConcurso: number;
+  avgSum: number;
 }
 
 export interface Pagination {

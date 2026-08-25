@@ -80,7 +80,7 @@ export default function App() {
 
         <PairHeatmap data={pairs} loading={loading} />
 
-        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} />
+        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} avgSum={stats?.avgSum} />
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200">

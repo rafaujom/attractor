@@ -22,6 +22,11 @@ interface MonthlyAggRow {
   smallGravity: number;
 }
 
+interface AvgSumAggRow {
+  _id: null;
+  avgSum: number;
+}
+
 // ── GET /api/draws ──────────────────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -58,7 +63,7 @@ router.get('/', async (req: Request, res: Response) => {
 // ── GET /api/draws/stats ────────────────────────────────────────────────────
 router.get('/stats', async (_req: Request, res: Response) => {
   try {
-    const [categoryCounts, monthlyRaw, latest] = await Promise.all([
+    const [categoryCounts, monthlyRaw, latest, avgSumRaw] = await Promise.all([
       Draw.aggregate<CategoryCountRow>([
         { $group: { _id: '$category', count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
@@ -79,6 +84,10 @@ router.get('/stats', async (_req: Request, res: Response) => {
         { $sort: { '_id.year': 1, '_id.month': 1 } },
       ]),
       Draw.findOne().sort({ concurso: -1 }),
+      Draw.aggregate<AvgSumAggRow>([
+        { $project: { sum: { $sum: '$numbers' } } },
+        { $group: { _id: null, avgSum: { $avg: '$sum' } } },
+      ]),
     ]);
 
     const cats: Record<GravityCategory, number> = {
@@ -99,11 +108,14 @@ router.get('/stats', async (_req: Request, res: Response) => {
       special:      m.midGravity + m.smallGravity,
     }));
 
+    const avgSum = avgSumRaw[0] ? Math.round(avgSumRaw[0].avgSum * 10) / 10 : 0;
+
     const response: StatsResponse = {
       total,
       categories: cats,
       monthly,
       latestConcurso: latest?.concurso ?? 0,
+      avgSum,
     };
     res.json(response);
   } catch (err) {
