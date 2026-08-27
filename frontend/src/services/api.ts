@@ -7,6 +7,7 @@ import type {
   SequentialStreakResponse,
   PairsResponse,
   RepeatRateResponse,
+  SuggestedTicketResponse,
   Ticket,
   TicketInput,
   Snapshot,
@@ -35,6 +36,9 @@ export const getPairs = (): Promise<PairsResponse> =>
 
 export const getRepeatRate = (): Promise<RepeatRateResponse> =>
   api.get('/draws/repeat-rate').then((r) => r.data as RepeatRateResponse);
+
+export const getSuggestedTicket = (): Promise<SuggestedTicketResponse> =>
+  api.get('/draws/suggested-ticket').then((r) => r.data as SuggestedTicketResponse);
 
 export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
   api

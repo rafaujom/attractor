@@ -165,6 +165,35 @@ export interface PickVerdict {
   verdict: string;
 }
 
+// ── Suggested ticket ─────────────────────────────────────────────────────────
+// A data-driven 15-number suggestion computed on demand from the full draw
+// history. Never persisted — recomputed fresh every time it's requested, so
+// it always reflects the latest draw in the database.
+export interface SuggestedNumberReasoning {
+  number: number;
+  freqPct: number;
+  currentStreak: number;
+  maxStreak: number;
+  wasInLastDraw: boolean;
+  score: number;
+}
+
+export interface SuggestedTicketShape {
+  category: GravityCategory;
+  sum: number;
+  odd: number;
+  even: number;
+  maxConsecutiveRun: number;
+}
+
+export interface SuggestedTicketResponse {
+  numbers: number[];
+  reasoning: SuggestedNumberReasoning[];
+  shape: SuggestedTicketShape;
+  basedOnDraws: number;
+  latestConcurso: number;
+}
+
 export interface TicketReview {
   ticket: Ticket;
   snapshot: Snapshot;

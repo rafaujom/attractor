@@ -5,7 +5,8 @@ import { computeSequentialStreaks } from '../services/streaks.js';
 import { computePairCounts } from '../services/pairs.js';
 import { computeRepeatRate } from '../services/repeatRate.js';
 import { scorePendingTickets } from '../services/scoring.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse } from '../../shared/types/index.js';
+import { computeSuggestedTicket } from '../services/suggestion.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse, SuggestedTicketResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -190,6 +191,19 @@ router.get('/repeat-rate', async (_req: Request, res: Response) => {
     const draws = await Draw.find().sort({ concurso: 1 }).select('concurso numbers -_id');
     const result: RepeatRateResponse = computeRepeatRate(draws);
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/suggested-ticket ─────────────────────────────────────────
+// Computed fresh from the current draw history on every request — nothing is
+// cached or persisted, so it always reflects the latest result in the DB.
+router.get('/suggested-ticket', async (_req: Request, res: Response) => {
+  try {
+    const draws = await Draw.find().sort({ concurso: 1 }).select('concurso numbers -_id');
+    const suggestion: SuggestedTicketResponse = computeSuggestedTicket(draws);
+    res.json(suggestion);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
