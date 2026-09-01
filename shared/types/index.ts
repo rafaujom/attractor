@@ -97,8 +97,9 @@ export interface RepeatRateResponse {
 }
 
 // ── Tickets ──────────────────────────────────────────────────────────────────
-// A ticket is the player's guess for a single draw (keyed by concurso). The
-// match count and prize flag are scored against that draw's winning numbers.
+// A ticket is one of the player's guesses for a draw — several tickets may
+// share the same concurso. The match count and prize flag are scored against
+// that draw's winning numbers.
 export interface Ticket {
   id: string;
   concurso: number;

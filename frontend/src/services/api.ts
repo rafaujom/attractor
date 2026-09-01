@@ -56,11 +56,14 @@ export function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-export const deleteTicket = (concurso: number): Promise<void> =>
-  api.delete(`/tickets/${concurso}`).then(() => undefined);
+export const deleteTicket = (id: string): Promise<void> =>
+  api.delete(`/tickets/${id}`).then(() => undefined);
 
 export const saveTicket = (ticket: TicketInput): Promise<Ticket> =>
   api.post('/tickets', ticket).then((r) => r.data as Ticket);
+
+export const updateTicket = (id: string, ticket: TicketInput): Promise<Ticket> =>
+  api.put(`/tickets/${id}`, ticket).then((r) => r.data as Ticket);
 
 export const getTicketSnapshot = (ticketId: string): Promise<Snapshot> =>
   api.get(`/tickets/${ticketId}/snapshot`).then((r) => r.data as Snapshot);

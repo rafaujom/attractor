@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getDraws, getTickets, getPendingTickets, saveTicket, deleteTicket, extractErrorMessage } from '../services/api';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getDraws, getTickets, getPendingTickets, saveTicket, updateTicket, deleteTicket, extractErrorMessage } from '../services/api';
 import type { DrawsResponse, GravityCategory, Draw, Ticket, TicketInput } from '@shared/types';
 import TicketModal from './TicketModal';
 
@@ -9,9 +9,11 @@ interface Props {
   avgSum?: number;
 }
 
+const MAX_TICKETS_PER_DRAW = 10;
+
 type ModalTarget =
-  | { kind: 'draw'; draw: Draw }
-  | { kind: 'pending-edit'; ticket: Ticket }
+  | { kind: 'draw'; draw: Draw; ticket: Ticket | null }
+  | { kind: 'pending'; concurso: number; ticket: Ticket | null }
   | { kind: 'pending-new' };
 
 const CAT_BADGE: Record<GravityCategory, string> = {
@@ -35,12 +37,12 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
   const [loading,        setLoading]        = useState(true);
   const [page,           setPage]           = useState(1);
   const [category,       setCategory]       = useState('');
-  const [tickets,        setTickets]        = useState<Record<number, Ticket>>({});
+  const [tickets,        setTickets]        = useState<Record<number, Ticket[]>>({});
   const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
   const [modalTarget,    setModalTarget]    = useState<ModalTarget | null>(null);
-  const [confirmDeleteConcurso, setConfirmDeleteConcurso] = useState<number | null>(null);
-  const [deletingConcursos,     setDeletingConcursos]     = useState<Set<number>>(new Set());
-  const [deleteError,           setDeleteError]           = useState<{ concurso: number; message: string } | null>(null);
+  const [confirmDeleteTicketId, setConfirmDeleteTicketId] = useState<string | null>(null);
+  const [deletingTicketIds,     setDeletingTicketIds]     = useState<Set<string>>(new Set());
+  const [deleteError,           setDeleteError]           = useState<{ ticketId: string; message: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,8 +56,10 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
       if (res.draws.length > 0) {
         const concursos = res.draws.map((d) => d.concurso);
         const list = await getTickets(concursos);
-        const map: Record<number, Ticket> = {};
-        for (const t of list) map[t.concurso] = t;
+        const map: Record<number, Ticket[]> = {};
+        for (const t of list) {
+          (map[t.concurso] ??= []).push(t);
+        }
         setTickets((prev) => ({ ...prev, ...map }));
       }
     } catch {
@@ -68,14 +72,29 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
   useEffect(() => { load(); }, [load, refreshKey]);
   useEffect(() => { setPage(1); }, [category]);
 
-  function handleSave(ticket: TicketInput): Promise<Ticket> {
-    return saveTicket(ticket).then((saved) => {
+  const pendingByConcurso = useMemo(() => {
+    const groups = new Map<number, Ticket[]>();
+    for (const t of pendingTickets) {
+      const arr = groups.get(t.concurso) ?? [];
+      arr.push(t);
+      groups.set(t.concurso, arr);
+    }
+    return [...groups.entries()].sort((a, b) => b[0] - a[0]);
+  }, [pendingTickets]);
+
+  function handleSave(input: TicketInput, existingId: string | null): Promise<Ticket> {
+    const req = existingId ? updateTicket(existingId, input) : saveTicket(input);
+    return req.then((saved) => {
       if (saved.matches !== null) {
-        setTickets((prev) => ({ ...prev, [saved.concurso]: saved }));
-        setPendingTickets((prev) => prev.filter((t) => t.concurso !== saved.concurso));
+        setTickets((prev) => {
+          const list = prev[saved.concurso] ?? [];
+          const next = existingId ? list.map((t) => (t.id === saved.id ? saved : t)) : [...list, saved];
+          return { ...prev, [saved.concurso]: next };
+        });
+        setPendingTickets((prev) => prev.filter((t) => t.id !== saved.id));
       } else {
         setPendingTickets((prev) => {
-          const others = prev.filter((t) => t.concurso !== saved.concurso);
+          const others = prev.filter((t) => t.id !== saved.id);
           return [saved, ...others].sort((a, b) => b.concurso - a.concurso);
         });
       }
@@ -83,60 +102,70 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
     });
   }
 
-  function handleDelete(concurso: number) {
-    setDeletingConcursos((prev) => new Set(prev).add(concurso));
+  function handleDelete(ticket: Ticket) {
+    setDeletingTicketIds((prev) => new Set(prev).add(ticket.id));
     setDeleteError(null);
-    deleteTicket(concurso)
+    deleteTicket(ticket.id)
       .then(() => {
-        setPendingTickets((prev) => prev.filter((t) => t.concurso !== concurso));
-        setConfirmDeleteConcurso((c) => (c === concurso ? null : c));
+        setPendingTickets((prev) => prev.filter((t) => t.id !== ticket.id));
+        setConfirmDeleteTicketId((id) => (id === ticket.id ? null : id));
       })
       .catch((err) => {
-        setDeleteError({ concurso, message: extractErrorMessage(err, 'Erro ao remover aposta. Tente novamente.') });
-        setConfirmDeleteConcurso((c) => (c === concurso ? null : c));
+        setDeleteError({ ticketId: ticket.id, message: extractErrorMessage(err, 'Erro ao remover aposta. Tente novamente.') });
+        setConfirmDeleteTicketId((id) => (id === ticket.id ? null : id));
       })
       .finally(() => {
-        setDeletingConcursos((prev) => {
+        setDeletingTicketIds((prev) => {
           const next = new Set(prev);
-          next.delete(concurso);
+          next.delete(ticket.id);
           return next;
         });
       });
   }
 
-  function ticketButton(draw: Draw) {
-    const t = tickets[draw.concurso];
-    if (!t) {
-      return (
-        <button
-          onClick={() => setModalTarget({ kind: 'draw', draw })}
-          className="px-2 py-1 text-xs rounded-lg border border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
-        >
-          + My Ticket
-        </button>
-      );
-    }
+  function ticketBadges(draw: Draw) {
+    const list = tickets[draw.concurso] ?? [];
     return (
-      <button
-        onClick={() => setModalTarget({ kind: 'draw', draw })}
-        className={`px-2 py-1 text-xs rounded-lg font-semibold border transition-colors whitespace-nowrap ${
-          t.hasPrize
-            ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-            : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
-        }`}
-      >
-        ✅ {t.matches}/15
-      </button>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {list.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setModalTarget({ kind: 'draw', draw, ticket: t })}
+            className={`px-2 py-1 text-xs rounded-lg font-semibold border transition-colors whitespace-nowrap ${
+              t.hasPrize
+                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            ✅ {t.matches}/15
+          </button>
+        ))}
+        {list.length === 0 && (
+          <button
+            onClick={() => setModalTarget({ kind: 'draw', draw, ticket: null })}
+            className="px-2 py-1 text-xs rounded-lg border border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
+          >
+            + My Ticket
+          </button>
+        )}
+        {list.length > 0 && list.length < MAX_TICKETS_PER_DRAW && (
+          <button
+            onClick={() => setModalTarget({ kind: 'draw', draw, ticket: null })}
+            title="Adicionar aposta"
+            className="w-6 h-6 flex items-center justify-center text-xs rounded-lg border border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+          >
+            +
+          </button>
+        )}
+      </div>
     );
   }
 
-  function pendingTicketButton(ticket: Ticket) {
-    const disabled = confirmDeleteConcurso === ticket.concurso || deletingConcursos.has(ticket.concurso);
+  function pendingTicketBadge(ticket: Ticket) {
     return (
       <button
-        onClick={() => setModalTarget({ kind: 'pending-edit', ticket })}
-        disabled={disabled}
-        className="px-2 py-1 text-xs rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+        onClick={() => setModalTarget({ kind: 'pending', concurso: ticket.concurso, ticket })}
+        className="px-2 py-1 text-xs rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors whitespace-nowrap"
       >
         🕒 {ticket.numbers.length} números
       </button>
@@ -144,13 +173,13 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
   }
 
   function pendingDeleteControl(ticket: Ticket) {
-    const isDeleting = deletingConcursos.has(ticket.concurso);
+    const isDeleting = deletingTicketIds.has(ticket.id);
 
-    if (confirmDeleteConcurso === ticket.concurso) {
+    if (confirmDeleteTicketId === ticket.id) {
       return (
         <span className="inline-flex items-center gap-1">
           <button
-            onClick={() => handleDelete(ticket.concurso)}
+            onClick={() => handleDelete(ticket)}
             disabled={isDeleting}
             title="Confirmar remoção"
             className="px-1.5 py-1 text-xs rounded-lg border border-red-300 text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -158,7 +187,7 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
             ✓
           </button>
           <button
-            onClick={() => setConfirmDeleteConcurso(null)}
+            onClick={() => setConfirmDeleteTicketId(null)}
             disabled={isDeleting}
             title="Cancelar"
             className="px-1.5 py-1 text-xs rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -171,8 +200,8 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
 
     return (
       <button
-        onClick={() => setConfirmDeleteConcurso(ticket.concurso)}
-        disabled={isDeleting}
+        onClick={() => setConfirmDeleteTicketId(ticket.id)}
+        disabled={isDeleting || deletingTicketIds.has(ticket.id)}
         title="Remover aposta"
         className="px-1.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
@@ -181,7 +210,7 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
     );
   }
 
-  const showPending = page === 1 && !category && pendingTickets.length > 0;
+  const showPending = page === 1 && !category && pendingByConcurso.length > 0;
   const isEmpty = (data?.draws?.length ?? 0) === 0 && !showPending;
 
   return (
@@ -238,24 +267,37 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
               </tr>
             ) : (
               <>
-                {showPending && pendingTickets.map((ticket) => (
+                {showPending && pendingByConcurso.map(([concurso, ticketsForConcurso]) => (
                   <tr
-                    key={`pending-${ticket.concurso}`}
+                    key={`pending-${concurso}`}
                     className="border-b border-slate-100 bg-amber-50/60 hover:bg-amber-50 transition-colors"
                   >
                     <td className="px-4 py-2 font-mono font-medium text-slate-600">
-                      #{ticket.concurso}
+                      #{concurso}
                     </td>
                     <td className="px-4 py-2 text-slate-400 italic whitespace-nowrap">—</td>
                     <td className="px-4 py-2 text-slate-400 italic">—</td>
                     <td className="px-4 py-2 text-slate-400 italic">—</td>
                     <td className="px-4 py-2">
-                      <div className="flex items-center gap-1.5">
-                        {pendingTicketButton(ticket)}
-                        {pendingDeleteControl(ticket)}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {ticketsForConcurso.map((ticket) => (
+                          <span key={ticket.id} className="inline-flex items-center gap-1.5">
+                            {pendingTicketBadge(ticket)}
+                            {pendingDeleteControl(ticket)}
+                          </span>
+                        ))}
+                        {ticketsForConcurso.length < MAX_TICKETS_PER_DRAW && (
+                          <button
+                            onClick={() => setModalTarget({ kind: 'pending', concurso, ticket: null })}
+                            title="Adicionar aposta"
+                            className="w-6 h-6 flex items-center justify-center text-xs rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
+                          >
+                            +
+                          </button>
+                        )}
                       </div>
-                      {deleteError?.concurso === ticket.concurso && (
-                        <p className="text-xs text-red-600 mt-1">{deleteError.message}</p>
+                      {ticketsForConcurso.some((t) => deleteError?.ticketId === t.id) && (
+                        <p className="text-xs text-red-600 mt-1">{deleteError?.message}</p>
                       )}
                     </td>
                   </tr>
@@ -280,7 +322,7 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
                       {draw.numbers.map((n) => String(n).padStart(2, '0')).join(' · ')}
                     </td>
                     <td className="px-4 py-2">
-                      {ticketButton(draw)}
+                      {ticketBadges(draw)}
                     </td>
                   </tr>
                 ))}
@@ -321,19 +363,19 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
           draw={modalTarget.draw}
           concurso={modalTarget.draw.concurso}
           concursoEditable={false}
-          existingTicket={tickets[modalTarget.draw.concurso] ?? null}
-          onSave={handleSave}
+          existingTicket={modalTarget.ticket}
+          onSave={(input) => handleSave(input, modalTarget.ticket?.id ?? null)}
           onClose={() => setModalTarget(null)}
           avgSum={avgSum}
         />
       )}
-      {modalTarget?.kind === 'pending-edit' && (
+      {modalTarget?.kind === 'pending' && (
         <TicketModal
           draw={null}
-          concurso={modalTarget.ticket.concurso}
+          concurso={modalTarget.concurso}
           concursoEditable={false}
           existingTicket={modalTarget.ticket}
-          onSave={handleSave}
+          onSave={(input) => handleSave(input, modalTarget.ticket?.id ?? null)}
           onClose={() => setModalTarget(null)}
           avgSum={avgSum}
         />
@@ -344,7 +386,7 @@ export default function ResultsTable({ refreshKey, latestConcurso, avgSum }: Pro
           concurso={(latestConcurso ?? data?.draws?.[0]?.concurso ?? 0) + 1}
           concursoEditable={true}
           existingTicket={null}
-          onSave={handleSave}
+          onSave={(input) => handleSave(input, null)}
           onClose={() => setModalTarget(null)}
           avgSum={avgSum}
         />
