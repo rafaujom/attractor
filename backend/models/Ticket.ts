@@ -15,7 +15,7 @@ export interface ITicketDocument extends mongoose.Document {
 
 const ticketSchema = new mongoose.Schema<ITicketDocument>(
   {
-    concurso: { type: Number, required: true, unique: true, index: true },
+    concurso: { type: Number, required: true, index: true },
     matches:  { type: Number, default: null },
     hasPrize: { type: Boolean, default: null },
     numbers: {

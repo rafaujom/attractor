@@ -7,6 +7,7 @@ import type {
   SequentialStreakResponse,
   PairsResponse,
   RepeatRateResponse,
+  SuggestedTicketResponse,
   Ticket,
   TicketInput,
   Snapshot,
@@ -36,6 +37,9 @@ export const getPairs = (): Promise<PairsResponse> =>
 export const getRepeatRate = (): Promise<RepeatRateResponse> =>
   api.get('/draws/repeat-rate').then((r) => r.data as RepeatRateResponse);
 
+export const getSuggestedTicket = (): Promise<SuggestedTicketResponse> =>
+  api.get('/draws/suggested-ticket').then((r) => r.data as SuggestedTicketResponse);
+
 export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
   api
     .get('/tickets', { params: { concursos: concursos.join(',') } })
@@ -52,11 +56,14 @@ export function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-export const deleteTicket = (concurso: number): Promise<void> =>
-  api.delete(`/tickets/${concurso}`).then(() => undefined);
+export const deleteTicket = (id: string): Promise<void> =>
+  api.delete(`/tickets/${id}`).then(() => undefined);
 
 export const saveTicket = (ticket: TicketInput): Promise<Ticket> =>
   api.post('/tickets', ticket).then((r) => r.data as Ticket);
+
+export const updateTicket = (id: string, ticket: TicketInput): Promise<Ticket> =>
+  api.put(`/tickets/${id}`, ticket).then((r) => r.data as Ticket);
 
 export const getTicketSnapshot = (ticketId: string): Promise<Snapshot> =>
   api.get(`/tickets/${ticketId}/snapshot`).then((r) => r.data as Snapshot);

@@ -10,6 +10,7 @@ import RepeatRateChart       from './components/RepeatRateChart';
 import RecencyChart          from './components/RecencyChart';
 import SequentialStreakChart from './components/SequentialStreakChart';
 import PairHeatmap           from './components/PairHeatmap';
+import SuggestedTicket       from './components/SuggestedTicket';
 import ResultsTable          from './components/ResultsTable';
 
 export default function App() {
@@ -65,6 +66,8 @@ export default function App() {
 
         <StatsCards stats={stats} loading={loading} />
 
+        <SuggestedTicket />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <GravityPieChart stats={stats} loading={loading} />
           <MonthlyBarChart stats={stats} loading={loading} />
@@ -80,7 +83,7 @@ export default function App() {
 
         <PairHeatmap data={pairs} loading={loading} />
 
-        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} />
+        <ResultsTable refreshKey={refreshKey} latestConcurso={stats?.latestConcurso} avgSum={stats?.avgSum} />
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200">

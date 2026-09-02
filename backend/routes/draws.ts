@@ -5,7 +5,8 @@ import { computeSequentialStreaks } from '../services/streaks.js';
 import { computePairCounts } from '../services/pairs.js';
 import { computeRepeatRate } from '../services/repeatRate.js';
 import { scorePendingTickets } from '../services/scoring.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse } from '../../shared/types/index.js';
+import { computeSuggestedTicket } from '../services/suggestion.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse, SuggestedTicketResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -20,6 +21,11 @@ interface MonthlyAggRow {
   highGravity: number;
   midGravity: number;
   smallGravity: number;
+}
+
+interface AvgSumAggRow {
+  _id: null;
+  avgSum: number;
 }
 
 // ── GET /api/draws ──────────────────────────────────────────────────────────
@@ -58,7 +64,7 @@ router.get('/', async (req: Request, res: Response) => {
 // ── GET /api/draws/stats ────────────────────────────────────────────────────
 router.get('/stats', async (_req: Request, res: Response) => {
   try {
-    const [categoryCounts, monthlyRaw, latest] = await Promise.all([
+    const [categoryCounts, monthlyRaw, latest, avgSumRaw] = await Promise.all([
       Draw.aggregate<CategoryCountRow>([
         { $group: { _id: '$category', count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
@@ -79,6 +85,10 @@ router.get('/stats', async (_req: Request, res: Response) => {
         { $sort: { '_id.year': 1, '_id.month': 1 } },
       ]),
       Draw.findOne().sort({ concurso: -1 }),
+      Draw.aggregate<AvgSumAggRow>([
+        { $project: { sum: { $sum: '$numbers' } } },
+        { $group: { _id: null, avgSum: { $avg: '$sum' } } },
+      ]),
     ]);
 
     const cats: Record<GravityCategory, number> = {
@@ -99,11 +109,14 @@ router.get('/stats', async (_req: Request, res: Response) => {
       special:      m.midGravity + m.smallGravity,
     }));
 
+    const avgSum = avgSumRaw[0] ? Math.round(avgSumRaw[0].avgSum * 10) / 10 : 0;
+
     const response: StatsResponse = {
       total,
       categories: cats,
       monthly,
       latestConcurso: latest?.concurso ?? 0,
+      avgSum,
     };
     res.json(response);
   } catch (err) {
@@ -178,6 +191,19 @@ router.get('/repeat-rate', async (_req: Request, res: Response) => {
     const draws = await Draw.find().sort({ concurso: 1 }).select('concurso numbers -_id');
     const result: RepeatRateResponse = computeRepeatRate(draws);
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/suggested-ticket ─────────────────────────────────────────
+// Computed fresh from the current draw history on every request — nothing is
+// cached or persisted, so it always reflects the latest result in the DB.
+router.get('/suggested-ticket', async (_req: Request, res: Response) => {
+  try {
+    const draws = await Draw.find().sort({ concurso: 1 }).select('concurso numbers -_id');
+    const suggestion: SuggestedTicketResponse = computeSuggestedTicket(draws);
+    res.json(suggestion);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

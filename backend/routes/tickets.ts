@@ -70,8 +70,51 @@ router.get('/pending', async (_req: Request, res: Response) => {
   }
 });
 
+const MAX_TICKETS_PER_DRAW = 10;
+
+function validateTicketBody(body: unknown): { concursoNum: number; nums: number[] } | { error: string } {
+  const { concurso, numbers } = body as { concurso: unknown; numbers: unknown };
+
+  if (!Number.isInteger(concurso)) {
+    return { error: 'A valid concurso number is required.' };
+  }
+  const concursoNum = concurso as number;
+
+  if (!Array.isArray(numbers) || numbers.length !== 15) {
+    return { error: 'Ticket must contain exactly 15 numbers.' };
+  }
+  const nums = numbers as number[];
+
+  if (nums.some((n) => !Number.isInteger(n) || n < 1 || n > 25)) {
+    return { error: 'All numbers must be integers between 1 and 25.' };
+  }
+  if (new Set(nums).size !== 15) {
+    return { error: 'All 15 numbers must be unique.' };
+  }
+
+  return { concursoNum, nums };
+}
+
+async function scoreForConcurso(
+  concursoNum: number,
+  nums: number[]
+): Promise<{ matches: number | null; hasPrize: boolean | null } | { error: string }> {
+  const draw = await Draw.findOne({ concurso: concursoNum });
+  if (draw) {
+    return scoreTicket(nums, draw.numbers);
+  }
+  const latest = await Draw.findOne().sort({ concurso: -1 });
+  const latestConcurso = latest?.concurso ?? 0;
+  if (concursoNum <= latestConcurso) {
+    return { error: `Draw #${concursoNum} not found and is not a future concurso.` };
+  }
+  // concurso is in the future: save as pending, scored later by POST /api/draws/fetch
+  return { matches: null, hasPrize: null };
+}
+
 // ── POST /api/tickets ─────────────────────────────────────────────────────────
-// Upsert the player's ticket for a draw. If the draw hasn't happened yet, the
+// Creates a new ticket for a draw. Several tickets may exist for the same
+// concurso (up to MAX_TICKETS_PER_DRAW). If the draw hasn't happened yet, the
 // ticket is saved as pending (matches/hasPrize null); POST /api/draws/fetch scores
 // it later once that concurso's result comes in. matches/hasPrize are always
 // computed on the server so they can't be spoofed by the client.
@@ -84,78 +127,55 @@ router.post('/', async (req: Request, res: Response) => {
       description?: unknown;
     };
 
-    if (!Number.isInteger(concurso)) {
-      res.status(400).json({ error: 'A valid concurso number is required.' });
+    const validated = validateTicketBody({ concurso, numbers });
+    if ('error' in validated) {
+      res.status(400).json({ error: validated.error });
       return;
     }
-    const concursoNum = concurso as number;
+    const { concursoNum, nums } = validated;
 
-    if (!Array.isArray(numbers) || numbers.length !== 15) {
-      res.status(400).json({ error: 'Ticket must contain exactly 15 numbers.' });
-      return;
-    }
-
-    const nums = numbers as number[];
-
-    if (nums.some((n) => !Number.isInteger(n) || n < 1 || n > 25)) {
-      res.status(400).json({ error: 'All numbers must be integers between 1 and 25.' });
+    const existingCount = await Ticket.countDocuments({ concurso: concursoNum });
+    if (existingCount >= MAX_TICKETS_PER_DRAW) {
+      res.status(400).json({ error: `Maximum of ${MAX_TICKETS_PER_DRAW} tickets per draw reached.` });
       return;
     }
 
-    if (new Set(nums).size !== 15) {
-      res.status(400).json({ error: 'All 15 numbers must be unique.' });
+    const scored = await scoreForConcurso(concursoNum, nums);
+    if ('error' in scored) {
+      res.status(400).json({ error: scored.error });
       return;
     }
-
-    const draw = await Draw.findOne({ concurso: concursoNum });
-
-    let matches: number | null = null;
-    let hasPrize: boolean | null = null;
-
-    if (draw) {
-      ({ matches, hasPrize } = scoreTicket(nums, draw.numbers));
-    } else {
-      const latest = await Draw.findOne().sort({ concurso: -1 });
-      const latestConcurso = latest?.concurso ?? 0;
-      if (concursoNum <= latestConcurso) {
-        res
-          .status(400)
-          .json({ error: `Draw #${concursoNum} not found and is not a future concurso.` });
-        return;
-      }
-      // concurso is in the future: save as pending, scored later by POST /api/draws/fetch
-    }
+    const { matches, hasPrize } = scored;
 
     const session = await mongoose.startSession();
     let savedTicket: ITicketDocument;
     try {
       savedTicket = await session.withTransaction(async () => {
-        const ticket = await Ticket.findOneAndUpdate(
-          { concurso: concursoNum },
-          {
-            concurso: concursoNum,
-            numbers: nums,
-            matches,
-            hasPrize,
-            label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
-            description:
-              typeof description === 'string' && description.trim() ? description.trim() : undefined,
-          },
-          { new: true, upsert: true, setDefaultsOnInsert: true, session }
+        const [ticket] = await Ticket.create(
+          [
+            {
+              concurso: concursoNum,
+              numbers: nums,
+              matches,
+              hasPrize,
+              label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
+              description:
+                typeof description === 'string' && description.trim() ? description.trim() : undefined,
+            },
+          ],
+          { session }
         );
 
         // Snapshot is captured once, the moment the ticket is first saved, and
         // is never recomputed on later edits — it must reflect what the stats
         // looked like at entry time. If this fails, the whole write rolls back.
-        if (!ticket.snapshotId) {
-          const snapshotData = await captureSnapshot(session);
-          const [snapshot] = await Snapshot.create(
-            [{ ticketId: ticket._id, targetConcurso: concursoNum, pickedNumbers: nums, ...snapshotData }],
-            { session }
-          );
-          ticket.snapshotId = snapshot._id;
-          await ticket.save({ session });
-        }
+        const snapshotData = await captureSnapshot(session);
+        const [snapshot] = await Snapshot.create(
+          [{ ticketId: ticket._id, targetConcurso: concursoNum, pickedNumbers: nums, ...snapshotData }],
+          { session }
+        );
+        ticket.snapshotId = snapshot._id;
+        await ticket.save({ session });
 
         return ticket;
       });
@@ -169,20 +189,62 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// ── DELETE /api/tickets/:concurso ─────────────────────────────────────────────
-// Removes a pending ticket (matches is still null — no result yet). Scored
-// tickets are permanent history and cannot be deleted through this endpoint.
-router.delete('/:concurso', async (req: Request, res: Response) => {
+// ── PUT /api/tickets/:id ───────────────────────────────────────────────────────
+// Edits an existing pending ticket (matches is still null — no result yet).
+// Scored tickets are permanent history and cannot be edited. The snapshot
+// captured at first save is never recomputed on edit.
+router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const concurso = Number(req.params.concurso);
-    if (!Number.isInteger(concurso)) {
-      res.status(400).json({ error: 'A valid concurso number is required.' });
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found.' });
+      return;
+    }
+    if (ticket.matches !== null) {
+      res.status(400).json({ error: 'Only pending tickets can be edited.' });
       return;
     }
 
-    const ticket = await Ticket.findOne({ concurso });
+    const { numbers, label, description } = req.body as {
+      numbers: unknown;
+      label?: unknown;
+      description?: unknown;
+    };
+
+    const validated = validateTicketBody({ concurso: ticket.concurso, numbers });
+    if ('error' in validated) {
+      res.status(400).json({ error: validated.error });
+      return;
+    }
+    const { nums } = validated;
+
+    const scored = await scoreForConcurso(ticket.concurso, nums);
+    if ('error' in scored) {
+      res.status(400).json({ error: scored.error });
+      return;
+    }
+
+    ticket.numbers = nums;
+    ticket.matches = scored.matches;
+    ticket.hasPrize = scored.hasPrize;
+    ticket.label = typeof label === 'string' && label.trim() ? label.trim() : undefined;
+    ticket.description = typeof description === 'string' && description.trim() ? description.trim() : undefined;
+    await ticket.save();
+
+    res.json(serialize(ticket));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── DELETE /api/tickets/:id ────────────────────────────────────────────────────
+// Removes a pending ticket (matches is still null — no result yet). Scored
+// tickets are permanent history and cannot be deleted through this endpoint.
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
     if (!ticket) {
-      res.status(404).json({ error: `Ticket for draw #${concurso} not found.` });
+      res.status(404).json({ error: 'Ticket not found.' });
       return;
     }
 
@@ -191,7 +253,7 @@ router.delete('/:concurso', async (req: Request, res: Response) => {
       return;
     }
 
-    await Ticket.deleteOne({ concurso });
+    await Ticket.deleteOne({ _id: ticket._id });
     if (ticket.snapshotId) await Snapshot.deleteOne({ _id: ticket.snapshotId });
     res.json({ deleted: true });
   } catch (err) {

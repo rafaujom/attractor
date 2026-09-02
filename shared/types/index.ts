@@ -26,6 +26,7 @@ export interface StatsResponse {
   categories: Record<GravityCategory, number>;
   monthly: MonthlyEntry[];
   latestConcurso: number;
+  avgSum: number;
 }
 
 export interface Pagination {
@@ -96,8 +97,9 @@ export interface RepeatRateResponse {
 }
 
 // ── Tickets ──────────────────────────────────────────────────────────────────
-// A ticket is the player's guess for a single draw (keyed by concurso). The
-// match count and prize flag are scored against that draw's winning numbers.
+// A ticket is one of the player's guesses for a draw — several tickets may
+// share the same concurso. The match count and prize flag are scored against
+// that draw's winning numbers.
 export interface Ticket {
   id: string;
   concurso: number;
@@ -162,6 +164,35 @@ export interface PickVerdict {
   isColdPick: boolean;
   isHotPick: boolean;
   verdict: string;
+}
+
+// ── Suggested ticket ─────────────────────────────────────────────────────────
+// A data-driven 15-number suggestion computed on demand from the full draw
+// history. Never persisted — recomputed fresh every time it's requested, so
+// it always reflects the latest draw in the database.
+export interface SuggestedNumberReasoning {
+  number: number;
+  freqPct: number;
+  currentStreak: number;
+  maxStreak: number;
+  wasInLastDraw: boolean;
+  score: number;
+}
+
+export interface SuggestedTicketShape {
+  category: GravityCategory;
+  sum: number;
+  odd: number;
+  even: number;
+  maxConsecutiveRun: number;
+}
+
+export interface SuggestedTicketResponse {
+  numbers: number[];
+  reasoning: SuggestedNumberReasoning[];
+  shape: SuggestedTicketShape;
+  basedOnDraws: number;
+  latestConcurso: number;
 }
 
 export interface TicketReview {

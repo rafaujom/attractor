@@ -11,6 +11,7 @@ interface Props {
   existingTicket: Ticket | null;
   onSave: (ticket: TicketInput) => Promise<Ticket>;
   onClose: () => void;
+  avgSum?: number;
 }
 
 function formatDate(iso: string): string {
@@ -24,6 +25,7 @@ export default function TicketModal({
   existingTicket,
   onSave,
   onClose,
+  avgSum,
 }: Props) {
   const [selected, setSelected] = useState<Set<number>>(
     existingTicket ? new Set(existingTicket.numbers) : new Set()
@@ -39,6 +41,7 @@ export default function TicketModal({
   const [activeTab, setActiveTab] = useState<'summary' | 'review'>('summary');
 
   const drawSet = new Set(draw?.numbers ?? []);
+  const sum = Array.from(selected).reduce((a, b) => a + b, 0);
   const isReadOnly = phase === 'result';
   const effectiveConcurso = concursoEditable ? concursoValue : concurso;
   const isConcursoValid = Number.isInteger(effectiveConcurso) && effectiveConcurso > 0;
@@ -197,6 +200,16 @@ export default function TicketModal({
                   ? `Selecione 15 números (${selected.size}/15 selecionados)`
                   : 'Seus números — 🟢 acerto · 🔴 erro'}
               </p>
+
+              {/* Live sum + historical average */}
+              {phase === 'pick' && (
+                <p className="text-xs text-slate-500 font-medium">
+                  Soma: <span className="text-slate-700">{sum}</span>
+                  {avgSum !== undefined && (
+                    <> · Média histórica: <span className="text-slate-700">{avgSum}</span></>
+                  )}
+                </p>
+              )}
 
               {/* 5×5 number grid */}
               <div className="grid grid-cols-5 gap-2">

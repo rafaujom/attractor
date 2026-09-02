@@ -4,6 +4,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import drawsRouter   from './routes/draws.js';
 import ticketsRouter from './routes/tickets.js';
+import Ticket from './models/Ticket.js';
 
 const app  = express();
 const PORT = process.env.PORT ?? 3001;
@@ -24,8 +25,11 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 mongoose
   .connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('✅  MongoDB connected');
+    // Drops the old unique index on Ticket.concurso (superseded by allowing
+    // multiple tickets per draw) and ensures the current schema's indexes exist.
+    await Ticket.syncIndexes();
     app.listen(PORT, () => console.log(`🚀  Server running on http://localhost:${PORT}`));
   })
   .catch((err: Error) => {
