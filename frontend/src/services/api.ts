@@ -8,6 +8,7 @@ import type {
   PairsResponse,
   RepeatRateResponse,
   SuggestedTicketResponse,
+  GravityPredictionResponse,
   Ticket,
   TicketInput,
   Snapshot,
@@ -40,7 +41,10 @@ export const getRepeatRate = (): Promise<RepeatRateResponse> =>
 export const getSuggestedTicket = (): Promise<SuggestedTicketResponse> =>
   api.get('/draws/suggested-ticket').then((r) => r.data as SuggestedTicketResponse);
 
-export const getTickets = (concursos: number[]): Promise<Ticket[]> =>
+export const getGravityPrediction = (): Promise<GravityPredictionResponse> =>
+  api.get('/draws/gravity-prediction').then((r) => r.data as GravityPredictionResponse);
+
+export const getTickets =(concursos: number[]): Promise<Ticket[]> =>
   api
     .get('/tickets', { params: { concursos: concursos.join(',') } })
     .then((r) => r.data as Ticket[]);

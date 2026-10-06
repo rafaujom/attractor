@@ -195,6 +195,22 @@ export interface SuggestedTicketResponse {
   latestConcurso: number;
 }
 
+// ── Gravity prediction ───────────────────────────────────────────────────────
+export interface GravityPredictionEntry {
+  category: GravityCategory;
+  basePct: number;      // historical share across all draws
+  adjustedPct: number;  // after the recency (streak) adjustment
+  favored: boolean;     // highest adjusted probability
+}
+
+export interface GravityPredictionResponse {
+  entries: GravityPredictionEntry[];
+  lookback: number;
+  streakCategory: GravityCategory | null;
+  streakLength: number;  // trailing same-category draws within the look-back window
+  basedOnDraws: number;
+}
+
 export interface TicketReview {
   ticket: Ticket;
   snapshot: Snapshot;

@@ -6,7 +6,8 @@ import { computePairCounts } from '../services/pairs.js';
 import { computeRepeatRate } from '../services/repeatRate.js';
 import { scorePendingTickets } from '../services/scoring.js';
 import { computeSuggestedTicket } from '../services/suggestion.js';
-import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse, SuggestedTicketResponse } from '../../shared/types/index.js';
+import { computeGravityPrediction } from '../services/gravityPrediction.js';
+import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse, SuggestedTicketResponse, GravityPredictionResponse } from '../../shared/types/index.js';
 
 const router = express.Router();
 
@@ -209,7 +210,18 @@ router.get('/suggested-ticket', async (_req: Request, res: Response) => {
   }
 });
 
-// ── GET /api/draws/:concurso ────────────────────────────────────────────────
+// ── GET /api/draws/gravity-prediction ───────────────────────────────────────
+router.get('/gravity-prediction', async (_req: Request, res: Response) => {
+  try {
+    const draws = await Draw.find().sort({ concurso: 1 }).select('category -_id');
+    const prediction: GravityPredictionResponse = computeGravityPrediction(draws);
+    res.json(prediction);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── GET /api/draws/:concurso────────────────────────────────────────────────
 router.get('/:concurso', async (req: Request, res: Response) => {
   try {
     const draw = await Draw.findOne({ concurso: parseInt(req.params.concurso) });
