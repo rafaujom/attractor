@@ -66,7 +66,7 @@ export default function App() {
 
         <StatsCards stats={stats} loading={loading} />
 
-        <SuggestedTicket />
+        <SuggestedTicket refreshKey={refreshKey} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <GravityPieChart stats={stats} loading={loading} />

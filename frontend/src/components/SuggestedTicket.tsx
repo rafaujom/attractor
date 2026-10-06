@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { getSuggestedTicket, extractErrorMessage } from '../services/api';
-import type { SuggestedTicketResponse, GravityCategory } from '@shared/types';
+import { useEffect, useState } from 'react';
+import { getSuggestedTicket, getGravityPrediction, extractErrorMessage } from '../services/api';
+import type { SuggestedTicketResponse, GravityPredictionResponse, GravityCategory } from '@shared/types';
 import Tooltip from './Tooltip';
 
 const CATEGORY_LABELS: Record<GravityCategory, string> = {
@@ -9,17 +9,41 @@ const CATEGORY_LABELS: Record<GravityCategory, string> = {
   'small-gravity': 'Small-Gravity',
 };
 
-export default function SuggestedTicket() {
+const CATEGORY_ROWS: Record<GravityCategory, { icon: string; label: string }> = {
+  'high-gravity': { icon: '🔴', label: 'High-gravity' },
+  'mid-gravity': { icon: '🔵', label: 'Mid-gravity' },
+  'small-gravity': { icon: '🟢', label: 'Small-gravity' },
+};
+
+function adjustmentTooltip(p: GravityPredictionResponse, category: GravityCategory): string {
+  const base = 'O % histórico é a frequência da categoria em todos os sorteios.';
+  if (!p.streakCategory || p.streakLength === 0) return base;
+  const streakLabel = CATEGORY_LABELS[p.streakCategory];
+  const effect = category === p.streakCategory
+    ? 'Por isso a probabilidade desta categoria é reduzida.'
+    : 'Por isso a probabilidade desta categoria é aumentada.';
+  return `${base} O % ajustado considera os últimos ${p.lookback} sorteios: ${p.streakLength} seguido(s) foram ${streakLabel}. Quanto maior a sequência, maior a chance de mudança de categoria. ${effect}`;
+}
+
+export default function SuggestedTicket({ refreshKey = 0 }: { refreshKey?: number }) {
   const [suggestion, setSuggestion] = useState<SuggestedTicketResponse | null>(null);
+  const [prediction, setPrediction] = useState<GravityPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Recalculate the prediction whenever new results are fetched.
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    getGravityPrediction().then(setPrediction).catch(() => {});
+  }, [refreshKey]);
 
   async function handleGenerate() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getSuggestedTicket();
+      const [data, pred] = await Promise.all([getSuggestedTicket(), getGravityPrediction()]);
       setSuggestion(data);
+      setPrediction(pred);
     } catch (err) {
       setError(extractErrorMessage(err, 'Erro ao gerar sugestão. Tente novamente.'));
     } finally {
@@ -86,6 +110,44 @@ export default function SuggestedTicket() {
             <span>Ímpares/Pares: <strong className="text-slate-700">{suggestion.shape.odd}/{suggestion.shape.even}</strong></span>
             <span>Maior sequência consecutiva: <strong className="text-slate-700">{suggestion.shape.maxConsecutiveRun}</strong></span>
           </div>
+
+          {prediction && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium mb-1.5">
+                Próximo Concurso — Probabilidade de Gravitação
+              </p>
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="text-slate-400 border-b border-slate-100">
+                    <th className="py-1.5 pr-3 font-medium">Categoria</th>
+                    <th className="py-1.5 pr-3 font-medium">Histórico %</th>
+                    <th className="py-1.5 pr-3 font-medium">Ajustado (sequência) %</th>
+                    <th className="py-1.5 pr-3 font-medium">Veredito</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prediction.entries.map((e) => (
+                    <tr key={e.category} className="border-b border-slate-50 last:border-0">
+                      <td className="py-1.5 pr-3 font-semibold text-slate-700">
+                        <Tooltip content={adjustmentTooltip(prediction, e.category)}>
+                          {CATEGORY_ROWS[e.category].icon} {CATEGORY_ROWS[e.category].label}
+                        </Tooltip>
+                      </td>
+                      <td className="py-1.5 pr-3 text-slate-600">{e.basePct}%</td>
+                      <td className="py-1.5 pr-3 text-slate-600">{e.adjustedPct}%</td>
+                      <td className="py-1.5 pr-3">
+                        {e.favored && (
+                          <span className="inline-block rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 font-semibold">
+                            Favored
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div>
             <p className="text-xs text-slate-500 font-medium mb-1.5">
