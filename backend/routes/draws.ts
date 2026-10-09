@@ -5,7 +5,7 @@ import { computeSequentialStreaks } from '../services/streaks.js';
 import { computePairCounts } from '../services/pairs.js';
 import { computeRepeatRate } from '../services/repeatRate.js';
 import { scorePendingTickets } from '../services/scoring.js';
-import { computeSuggestedTicket } from '../services/suggestion.js';
+import { computeSuggestedTicket, SuggestionConstraintError } from '../services/suggestion.js';
 import { computeGravityPrediction } from '../services/gravityPrediction.js';
 import type { StatsResponse, MonthlyEntry, GravityCategory, DrawInput, RecencyEntry, SequentialStreakResponse, PairsResponse, RepeatRateResponse, SuggestedTicketResponse, GravityPredictionResponse } from '../../shared/types/index.js';
 
@@ -200,12 +200,27 @@ router.get('/repeat-rate', async (_req: Request, res: Response) => {
 // ── GET /api/draws/suggested-ticket ─────────────────────────────────────────
 // Computed fresh from the current draw history on every request — nothing is
 // cached or persisted, so it always reflects the latest result in the DB.
-router.get('/suggested-ticket', async (_req: Request, res: Response) => {
+// Optional ?targetCategory=small-gravity|mid-gravity|high-gravity constrains
+// the ticket to that gravity category; omitted keeps the unconstrained result.
+router.get('/suggested-ticket', async (req: Request, res: Response) => {
   try {
+    const raw = req.query.targetCategory;
+    let targetCategory: GravityCategory | undefined;
+    if (raw !== undefined) {
+      if (raw !== 'small-gravity' && raw !== 'mid-gravity' && raw !== 'high-gravity') {
+        res.status(400).json({ error: 'targetCategory inválido. Use small-gravity, mid-gravity ou high-gravity.' });
+        return;
+      }
+      targetCategory = raw;
+    }
     const draws = await Draw.find().sort({ concurso: 1 }).select('concurso numbers -_id');
-    const suggestion: SuggestedTicketResponse = computeSuggestedTicket(draws);
+    const suggestion: SuggestedTicketResponse = computeSuggestedTicket(draws, targetCategory);
     res.json(suggestion);
   } catch (err) {
+    if (err instanceof SuggestionConstraintError) {
+      res.status(422).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: (err as Error).message });
   }
 });

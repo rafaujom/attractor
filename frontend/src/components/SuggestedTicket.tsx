@@ -15,6 +15,14 @@ const CATEGORY_ROWS: Record<GravityCategory, { icon: string; label: string }> = 
   'small-gravity': { icon: '🟢', label: 'Small-gravity' },
 };
 
+const SELECTOR_ORDER: GravityCategory[] = ['small-gravity', 'mid-gravity', 'high-gravity'];
+
+const CATEGORY_SELECTOR: Record<GravityCategory, { icon: string; label: string; title: string }> = {
+  'small-gravity': { icon: '🟢', label: 'Pequena', title: 'Pequena Gravitação' },
+  'mid-gravity': { icon: '🔵', label: 'Média', title: 'Média Gravitação' },
+  'high-gravity': { icon: '🔴', label: 'Alta', title: 'Alta Gravitação' },
+};
+
 function adjustmentTooltip(p: GravityPredictionResponse, category: GravityCategory): string {
   const base = 'O % histórico é a frequência da categoria em todos os sorteios.';
   if (!p.streakCategory || p.streakLength === 0) return base;
@@ -30,19 +38,30 @@ export default function SuggestedTicket({ refreshKey = 0 }: { refreshKey?: numbe
   const [prediction, setPrediction] = useState<GravityPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<GravityCategory>('mid-gravity');
+  const [userPicked, setUserPicked] = useState(false);
+  const [generatedFor, setGeneratedFor] = useState<GravityCategory | null>(null);
 
-  // Recalculate the prediction whenever new results are fetched.
+  // Load (and recalculate on new results) the prediction used for the default.
   useEffect(() => {
-    if (refreshKey === 0) return;
     getGravityPrediction().then(setPrediction).catch(() => {});
   }, [refreshKey]);
+
+  // Default the selector to the highest adjusted-probability category until
+  // the user makes an explicit choice.
+  useEffect(() => {
+    if (userPicked || !prediction) return;
+    const top = prediction.entries.reduce((a, b) => (b.adjustedPct > a.adjustedPct ? b : a));
+    setSelected(top.category);
+  }, [prediction, userPicked]);
 
   async function handleGenerate() {
     try {
       setLoading(true);
       setError(null);
-      const [data, pred] = await Promise.all([getSuggestedTicket(), getGravityPrediction()]);
+      const [data, pred] = await Promise.all([getSuggestedTicket(selected), getGravityPrediction()]);
       setSuggestion(data);
+      setGeneratedFor(selected);
       setPrediction(pred);
     } catch (err) {
       setError(extractErrorMessage(err, 'Erro ao gerar sugestão. Tente novamente.'));
@@ -59,6 +78,22 @@ export default function SuggestedTicket({ refreshKey = 0 }: { refreshKey?: numbe
             🎯 Sugestão de Jogo
           </Tooltip>
         </h2>
+        <div className="flex items-center gap-2 flex-wrap">
+        <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden" role="group" aria-label="Categoria de gravitação alvo">
+          {SELECTOR_ORDER.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              aria-pressed={selected === cat}
+              onClick={() => { setSelected(cat); setUserPicked(true); }}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                selected === cat ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {CATEGORY_SELECTOR[cat].icon} {CATEGORY_SELECTOR[cat].label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={handleGenerate}
           disabled={loading}
@@ -77,6 +112,7 @@ export default function SuggestedTicket({ refreshKey = 0 }: { refreshKey?: numbe
             <>{suggestion ? '🔄 Gerar Novamente' : '✨ Gerar Sugestão'}</>
           )}
         </button>
+        </div>
       </div>
 
       {error && (
@@ -93,6 +129,11 @@ export default function SuggestedTicket({ refreshKey = 0 }: { refreshKey?: numbe
 
       {suggestion && (
         <div className="space-y-4">
+          {generatedFor && (
+            <p className="text-sm font-semibold text-slate-700">
+              {CATEGORY_SELECTOR[generatedFor].icon} Sugestão {CATEGORY_SELECTOR[generatedFor].title}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {suggestion.numbers.map((n) => (
               <span
