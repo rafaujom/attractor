@@ -1,7 +1,7 @@
 import { classify } from './classifier.js';
 import { computeSequentialStreaks } from './streaks.js';
 import { computePairCounts } from './pairs.js';
-import type { SuggestedNumberReasoning, SuggestedTicketResponse } from '../../shared/types/index.js';
+import type { GravityCategory, SuggestedNumberReasoning, SuggestedTicketResponse } from '../../shared/types/index.js';
 
 interface DrawRecord {
   concurso: number;
@@ -29,6 +29,8 @@ const PAIR_SYNERGY_WEIGHT = 0.15;
 
 const TICKET_SIZE = 15;
 
+class SuggestionConstraintError extends Error {}
+
 function computeMaxConsecutiveRun(numbers: number[]): number {
   const sorted = [...numbers].sort((a, b) => a - b);
   let maxRun = 1;
@@ -40,7 +42,28 @@ function computeMaxConsecutiveRun(numbers: number[]): number {
   return maxRun;
 }
 
-function computeSuggestedTicket(draws: DrawRecord[]): SuggestedTicketResponse {
+interface CategoryConstraint {
+  // Numbers eligible for selection under this category.
+  pool: number[];
+  // Groups that must each contribute at least one number to the ticket.
+  required: number[][];
+}
+
+const range = (from: number, to: number): number[] =>
+  Array.from({ length: to - from + 1 }, (_, i) => from + i);
+
+// Mirrors classifier.ts: small = max ≤ 21; high = min ≥ 4 and max ≥ 22;
+// mid = min ≤ 3 and max ≥ 22.
+const CATEGORY_CONSTRAINTS: Record<GravityCategory, CategoryConstraint> = {
+  'small-gravity': { pool: range(1, 21), required: [] },
+  'high-gravity': { pool: range(4, 25), required: [range(22, 25)] },
+  'mid-gravity': { pool: range(1, 25), required: [range(1, 3), range(22, 25)] },
+};
+
+function computeSuggestedTicket(
+  draws: DrawRecord[],
+  targetCategory?: GravityCategory
+): SuggestedTicketResponse {
   const sortedDraws = [...draws].sort((a, b) => a.concurso - b.concurso);
   const total = sortedDraws.length;
   const latestDraw = sortedDraws[total - 1];
@@ -110,7 +133,8 @@ function computeSuggestedTicket(draws: DrawRecord[]): SuggestedTicketResponse {
   // synergy genuinely influences selection order rather than just being
   // reported afterward.
   const picked: number[] = [];
-  const remaining = new Set<number>(Array.from({ length: 25 }, (_, i) => i + 1));
+  const constraint = targetCategory ? CATEGORY_CONSTRAINTS[targetCategory] : undefined;
+  const remaining = new Set<number>(constraint ? constraint.pool : range(1, 25));
 
   while (picked.length < TICKET_SIZE) {
     let best: number | null = null;
@@ -130,9 +154,33 @@ function computeSuggestedTicket(draws: DrawRecord[]): SuggestedTicketResponse {
     remaining.delete(best as number);
   }
 
+  // Repair: if greedy selection left a required group (e.g. 22–25) empty,
+  // swap in that group's best-scoring number for the weakest pick that isn't
+  // the sole representative of another required group.
+  if (constraint) {
+    for (const group of constraint.required) {
+      if (picked.some((n) => group.includes(n))) continue;
+      const incoming = group.reduce((a, b) =>
+        (baseScoreByNumber.get(b) ?? 0) > (baseScoreByNumber.get(a) ?? 0) ? b : a
+      );
+      const evictable = picked.filter((n) =>
+        constraint.required.every((g) => !g.includes(n) || picked.filter((m) => g.includes(m)).length > 1)
+      );
+      const outgoing = evictable.reduce((a, b) =>
+        (baseScoreByNumber.get(b) ?? 0) < (baseScoreByNumber.get(a) ?? 0) ? b : a
+      );
+      picked[picked.indexOf(outgoing)] = incoming;
+    }
+  }
+
   picked.sort((a, b) => a - b);
 
   const { category } = classify(picked);
+  if (targetCategory && (category !== targetCategory || new Set(picked).size !== TICKET_SIZE)) {
+    throw new SuggestionConstraintError(
+      `Não foi possível montar um jogo válido para a categoria ${targetCategory}.`
+    );
+  }
   const sum = picked.reduce((a, b) => a + b, 0);
   const odd = picked.filter((n) => n % 2 === 1).length;
 
@@ -153,4 +201,4 @@ function computeSuggestedTicket(draws: DrawRecord[]): SuggestedTicketResponse {
   };
 }
 
-export { computeSuggestedTicket };
+export { computeSuggestedTicket, SuggestionConstraintError };

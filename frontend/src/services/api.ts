@@ -9,6 +9,7 @@ import type {
   RepeatRateResponse,
   SuggestedTicketResponse,
   GravityPredictionResponse,
+  GravityCategory,
   Ticket,
   TicketInput,
   Snapshot,
@@ -38,8 +39,10 @@ export const getPairs = (): Promise<PairsResponse> =>
 export const getRepeatRate = (): Promise<RepeatRateResponse> =>
   api.get('/draws/repeat-rate').then((r) => r.data as RepeatRateResponse);
 
-export const getSuggestedTicket = (): Promise<SuggestedTicketResponse> =>
-  api.get('/draws/suggested-ticket').then((r) => r.data as SuggestedTicketResponse);
+export const getSuggestedTicket = (targetCategory?: GravityCategory): Promise<SuggestedTicketResponse> =>
+  api
+    .get('/draws/suggested-ticket', { params: targetCategory ? { targetCategory } : undefined })
+    .then((r) => r.data as SuggestedTicketResponse);
 
 export const getGravityPrediction = (): Promise<GravityPredictionResponse> =>
   api.get('/draws/gravity-prediction').then((r) => r.data as GravityPredictionResponse);
